@@ -26,7 +26,7 @@ class PtmBin(object):
         self.fn_bytes = os.stat(self.fn).st_size
 
         self.read_bin_header()
-        
+
         # File Format:
         #  int32: Nattr number of attributes
         #  Nattr*[int32 char80 char80]: attribute index, type, name
@@ -40,9 +40,9 @@ class PtmBin(object):
 
         # Get the time information
         self.getTime()
-        
+
     def read_bin_header(self):
-        
+
         self.Nattr = int( np.fromstring(self.fp.read(4),np.int32) )
 
         # print "Nattr: ",self.Nattr
@@ -60,9 +60,9 @@ class PtmBin(object):
         if the beginning of that timestep is at or beyond the end of the file
         return False, signifying that ts does not exist.
         """
-        if not self.offsets.has_key(ts):
+        if ts not in self.offsets:
             for ts_scan in range(1,ts+1):
-                if not self.offsets.has_key(ts_scan):
+                if ts_scan not in self.offsets:
                     # if we don't have the offset of this step, go to the one
                     # before, and find out how big the previous frame was.
                     self.fp.seek( self.offsets[ts_scan-1])
@@ -91,7 +91,7 @@ class PtmBin(object):
             else:
                 # valid_ts+1 doesn't exist, so valid_ts is the last valid timestep
                 break
-            
+
         self.fp.seek(saved_pos)
         # possible that this is 0!
         return valid_ts + 1
@@ -100,13 +100,13 @@ class PtmBin(object):
         dnum1,data = self.read_timestep(0)
         dnum2,data = self.read_timestep(1)
         return (dnum2-dnum1)
-            
+
     def read_timestep(self,ts=0):
         """ returns a datenum and the particle array
         """
         if not self.scan_to_timestep(ts):
             return None,None
-        
+
         # Read the time
         dnum,Npart = self.readTime()
 
@@ -116,7 +116,7 @@ class PtmBin(object):
         part_size = 2*4 + 3*8
 
         # print "reading %d particles"%Npart
-        
+
         data = np.fromstring( self.fp.read( part_size * Npart), dtype=part_dtype)
         return dnum,data
 
@@ -134,7 +134,7 @@ class PtmBin(object):
         if hour == 24:
             hour = 0
             day += 1
-        
+
         return datetime(year,month,day,hour,minute),Npart
 
 
@@ -154,13 +154,13 @@ class PtmBin(object):
         """
         Plots the current time step
         """
-        
+
         # Check for the plot handle
-        if not self.__dict__.has_key('p_handle'):
+        if 'p_handle' not in self.__dict__:
             # Initialize the plot
             if ax==None:
                 ax = plt.gca()
-            h1 = ax.plot([],[],marker=marker,linestyle='None',color=color,**kwargs) 
+            h1 = ax.plot([],[],marker=marker,linestyle='None',color=color,**kwargs)
             self.p_handle=h1[0]
             self.title = ax.set_title("",fontdict={'color':fontcolor})
 
@@ -190,13 +190,13 @@ def shp2pol(shpfile,outdir):
 
     xy = XY[0]
     numverts = xy.shape[0]
-    
+
     polynameext =   os.path.basename(shpfile)
     polyname,ext = os.path.splitext(polynameext)
 
     outfile = '%s/%s.pol'%(outdir,polyname)
 
-    print 'Writing polygon to: %s...'%outfile
+    print('Writing polygon to: %s...'%outfile)
 
     f = open(outfile,'w')
     f.write('POLYGON_NAME\n')
@@ -208,7 +208,7 @@ def shp2pol(shpfile,outdir):
         f.write('%6.10f %6.10f\n'%(xy[ii,0],xy[ii,1]))
 
     f.close()
-    print 'Done.'
+    print('Done.')
 
 def calc_agebin(binfile,ncfile,polyfile,ntout):
     """
@@ -234,7 +234,7 @@ def calc_agebin(binfile,ncfile,polyfile,ntout):
     ncctr=0
     for tt in range(PTM.nt-1):
         # Read the current time step
-        time,pdata = PTM.read_timestep(ts=tt) 
+        time,pdata = PTM.read_timestep(ts=tt)
 
         # Update the age variable
         Age.update_age(pdata['x'][:,0],pdata['x'][:,1],pdata['x'][:,2],dt)
@@ -246,7 +246,7 @@ def calc_agebin(binfile,ncfile,polyfile,ntout):
             outctr=0
         outctr+=1
 
-    print 'Done.'
+    print('Done.')
 
 #hydrofile = '../InputFiles/untrim_hydro.nc'
 #ptmfile = '../InputFiles/line_specify_bin.out'

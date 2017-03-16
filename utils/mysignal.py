@@ -69,26 +69,26 @@ def powerspec2D(phi,dx=1.,dz=1.,window=np.hanning,quadrant=0):
 def power_spectra(tsec, u_r, K=3, power=2., axis=-1):
     """
     Calculates the power spectral density from a real valued quanity
-    
+
     """
-    
+
     M = tsec.shape[0]
     dt = tsec[1]-tsec[0]
     M_2 = np.floor(M/2)
-    
+
     h_tk = window_sinetaper(M,K=K)
-   
+
     # Weight the time-series and perform the fft
     u_r_t = u_r[...,np.newaxis,:]*h_tk
     S_k = np.fft.fft(u_r_t, axis=axis)
     S_k = dt *np.abs(S_k)**power
     S = np.mean(S_k,axis=-2)
-        
+
     omega = np.fft.fftfreq(int(M),d=dt/(2*np.pi))
-    
+
     #domega = 2*np.pi/(M*dt)
     domega = 1/(M*dt)
-    
+
     # Extract the positive and negative frequencies
     omega_ccw = omega[0:M_2]
     #omega_cw = omega[M_2::] # negative frequencies
@@ -101,30 +101,30 @@ def power_spectra(tsec, u_r, K=3, power=2., axis=-1):
 def rotary_spectra(tsec,u,v,K=3,power=2.):
     """
     Calculates the rotary spectral kinetic energy from velocity.
-    
+
     See Alford and Whitmont, 2007, JPO for details.
     """
-    
+
     M = tsec.shape[0]
     dt = tsec[1]-tsec[0]
     M_2 = np.floor(M/2)
-    
+
     # Put the velocity in rotary form
     u_r = u+1j*v
-    
+
     h_tk = window_sinetaper(M,K=K)
-   
+
     # Weight the time-series and perform the fft
     u_r_t = u_r[...,np.newaxis,:]*h_tk
     S_k = np.fft.fft(u_r_t,axis=-1)
     S_k = dt *np.abs(S_k)**power
     S = np.mean(S_k,axis=-2)
-        
+
     omega = np.fft.fftfreq(int(M),d=dt/(2*np.pi))
-    
+
     #domega = 2*np.pi/(M*dt)
     domega = 1/(M*dt)
-    
+
     # Extract the clockwise and counter-clockwise component
     omega_ccw = omega[0:M_2]
     omega_cw = omega[M_2::] # negative frequencies
@@ -154,7 +154,7 @@ def integrate_rotspec(omega_cw,omega_ccw,S_cw,S_ccw,domega,omega_low=None,omega_
     else:
         t1_cw = np.argwhere(omega_cw<=-omega_low)[-1]
         t1_ccw = np.argwhere(omega_ccw<=omega_high)[-1]
-    
+
     # Integrate under the spectrum to get the kinetic energy
     KE_ccw = 0.5*np.sum(S_ccw[...,t0_ccw:t1_ccw]*domega,axis=-1)
     KE_cw = 0.5*np.sum(S_cw[...,t0_cw:t1_cw]*domega,axis=-1)
@@ -166,12 +166,12 @@ def integrate_rotspec(omega_cw,omega_ccw,S_cw,S_ccw,domega,omega_low=None,omega_
     #    x=omega_cw[t0_cw:t1_cw],axis=-1)
 
     return KE_ccw, KE_cw
- 
+
 def eofsvd(M):
     """
     Compute empirical orthogonal function using singular
     value decomposition technique
-    
+
     Inputs:
         - M : matrix with time along first axis and observation points along
           second
@@ -183,7 +183,7 @@ def eofsvd(M):
     # Remove the mean from the columns
     M = M - M.mean(axis=0)
 
-    # 
+    #
     U,s,V = np.linalg.svd(M,full_matrices=False)
 
     # The principal components are U*s
@@ -205,15 +205,12 @@ def window2d(M,N,windowfunc=np.hanning,**kwargs):
     wr = windowfunc(M,**kwargs)
     maskr,maskc = np.meshgrid(wr,wc)
     return maskr*maskc
-    
+
 def window_sinetaper(M,K=3):
     # Generate the time-domain taper for the FFT
     h_tk = np.zeros((K,M))
     t=np.arange(M,dtype=np.double)
     for k in range(K):
-        h_tk[k,:] = np.sqrt(2./(M+1.))*np.sin( (k+1)*np.pi*t / (M+1.) ) 
+        h_tk[k,:] = np.sqrt(2./(M+1.))*np.sin( (k+1)*np.pi*t / (M+1.) )
 
     return h_tk
- 
-
-

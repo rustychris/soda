@@ -12,11 +12,11 @@ from soda.utils.inpolygon import inpolygon
 
 def cartesian_ugrid_gen(xlims, ylims, dx, suntanspath=None, maskpoly=None):
     """
-    Creates a cartesian grid in a box 
+    Creates a cartesian grid in a box
 
     Inputs:
-        xlims - [xmin, xmax] 
-        ylims - [ymin, ymax] 
+        xlims - [xmin, xmax]
+        ylims - [ymin, ymax]
         dx - grid spacing
     """
 
@@ -69,7 +69,7 @@ def curv_ugrid_gen(X,Y,suntanspath=None,maskpoly=None):
             if mask[jj,ii] and mask[jj+1,ii] and mask[jj+1,ii+1] and mask[jj,ii+1]:
                 cells.append([pntindx(jj,ii,nx), pntindx(jj+1,ii,nx),\
                     pntindx(jj+1,ii+1,nx),pntindx(jj,ii+1,nx)])
-            
+
     Nc = len(cells)
     nfaces = 4*np.ones((Nc,),np.int)
 
@@ -88,7 +88,7 @@ def reorder_ugrid(grd):
 
     Input:
         grd - HybridGrid object
-    
+
     Returns:
         a reordered HybridGrid object
     """
@@ -105,5 +105,3 @@ def reorder_ugrid(grd):
 
     # Create a new grid with this ordering
     return HybridGrid(grd.xp, grd.yp, grd.cells[perm, ...])
-
-

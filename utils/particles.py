@@ -10,8 +10,8 @@ import os
 import numpy as np
 from netCDF4 import Dataset, num2date
 from datetime import datetime
-import othertime
-from inpolygon import inpolygon
+from . import othertime
+from .inpolygon import inpolygon
 
 import pdb
 
@@ -62,14 +62,14 @@ class Particle(object):
         Read the tstep from a netcdf file
         """
         # Check if the file is opened
-        if not self.__dict__.has_key('_nc'):
+        if '_nc' not in self.__dict__:
             if ncfile == None:
-                raise Exception, 'must set "ncfile" on call to read_nc().'
+                raise Exception('must set "ncfile" on call to read_nc().')
             else:
                 # Open the file for reading
                 self._nc = Dataset(ncfile,'r')
 
-        # Read the time data 
+        # Read the time data
         t = self.nc.variables['tp']
         self.time = num2date(t[tstep],t.units)
 
@@ -86,15 +86,15 @@ class Particle(object):
         Writes the particle locations at the output time step, 'tstep'
         """
         if self.verbose:
-            print '\tWriting netcdf output at tstep: %d...'%tstep
+            print('\tWriting netcdf output at tstep: %d...'%tstep)
 
         # Check if the file is opened
-        if not self.__dict__.has_key('_nc'):
+        if '_nc' not in self.__dict__:
             if ncfile == None:
-                raise Exception, 'must set "ncfile" on call to write_nc().'
+                raise Exception('must set "ncfile" on call to write_nc().')
             else:
                 self.create_nc(ncfile)
-            
+
         t = othertime.SecondsSince(time,basetime=self.basetime)
 
         self._nc.variables['tp'][tstep]=t
@@ -114,8 +114,8 @@ class Particle(object):
         """
 
         if self.verbose:
-            print '\nInitialising particle netcdf file: %s...\n'%ncfile
-            
+            print('\nInitialising particle netcdf file: %s...\n'%ncfile)
+
         # Global Attributes
         nc = Dataset(ncfile, 'w', format='NETCDF4_CLASSIC')
         nc.Description = 'Particle trajectory file'
@@ -125,13 +125,13 @@ class Particle(object):
         # Dimensions
         nc.createDimension('ntrac', self.N)
         nc.createDimension('nt', 0) # Unlimited
-        
+
         # Create variables
         def create_nc_var( name, dimensions, attdict, dtype='f8'):
             tmp=nc.createVariable(name, dtype, dimensions)
-            for aa in attdict.keys():
+            for aa in list(attdict.keys()):
                 tmp.setncattr(aa,attdict[aa])
-          
+
         basetimestr = 'seconds since %s'%(datetime.strftime(self.basetime,\
             '%Y-%m-%d %H:%M:%S'))
         create_nc_var('tp',('nt'),{'units':basetimestr\
@@ -150,7 +150,7 @@ class Particle(object):
 
         # Keep the pointer to the open file as an attribute
         self._nc = nc
-      
+
 class ParticleAge(Particle):
     """
     Class for calculating particle age inside of a polygon
@@ -165,11 +165,11 @@ class ParticleAge(Particle):
         """
         Find which particles are in the polygon and update their age
         """
-        
+
         self.update_xyz(x,y,z)
 
         inpoly = self.inpolygon()
-        
+
         age = self.age
         age[inpoly] += dt
         age[inpoly==False] = 0.
@@ -183,4 +183,3 @@ class ParticleAge(Particle):
         xy = np.vstack((self.X,self.Y)).T
 
         return inpolygon(xy, self.agepoly)
-        

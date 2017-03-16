@@ -17,10 +17,10 @@ import operator
 import xray
 import pandas as pd
 
-import othertime
-from uspectra import uspectra, getTideFreq
-from otherplot import stackplot
-from harmonic_analysis import harmonic_fit, harmonic_signal
+from . import othertime
+from .uspectra import uspectra, getTideFreq
+from .otherplot import stackplot
+from .harmonic_analysis import harmonic_fit, harmonic_signal
 from soda.dataio.netcdfio import queryNC
 
 import pdb
@@ -28,17 +28,17 @@ import pdb
 class timeseries(object):
     """
     Class for handling time series data
-    
+
     Methods include:
         - Power spectral density (plot)
         - Filtering
         - Interpolation
         - Plotting
     """
-    
+
     basetime = datetime(1900,1,1)
     VERBOSE=False
-    
+
     units=''
     long_name=''
     StationID = ''
@@ -47,16 +47,16 @@ class timeseries(object):
     Z=0.0
     X=0.0
     Y=0.0
-    
+
     def __init__(self,t,y,**kwargs):
-        
-        self.__dict__.update(kwargs)        
+
+        self.__dict__.update(kwargs)
         self.t = self._set_time(t) # independent variable (t,x, etc)
         self.y = y # dependent variable
-        
+
         self.shape = self.y.shape
         self.ndim = len(self.shape)
-        
+
 
         # Convert the time to seconds
         self.tsec = self._get_tsec(self.t)
@@ -65,33 +65,33 @@ class timeseries(object):
         #    self.tsec = ((time - time[0])*1e-9).astype(np.float64)
         #else:
         #    self.tsec = othertime.SecondsSince(self.t,basetime=self.basetime)
-        
+
         self.ny = np.size(self.y)
 
         # make sure the original data is a masked array
         if not isinstance(self.y,np.ma.core.MaskedArray):
             mask = ~np.isfinite(self.y)
             self.y = np.ma.MaskedArray(self.y,mask=mask)
-        
+
         self.dt, self.isequal = self._check_dt(self.tsec)
 
         self.Nt = self.t.shape[0]
-        
+
         # Make sure that time is the last dimension
         if self.y.shape[-1] != self.Nt:
             self.y=self.y.T
-        
+
     def psd(self, plot=True, nbandavg=1, scale=1.,**kwargs):
         """
         Power spectral density
-        
+
         nbandavg = Number of fft bnns to average
         scale = scale factor (for plotting only)
         """
-        
+
         if self.isequal==False and self.VERBOSE:
-            print 'Warning - time series is unequally spaced consider using lomb-scargle fft'
-        
+            print('Warning - time series is unequally spaced consider using lomb-scargle fft')
+
 
         NFFT = int(2**(np.floor(np.log2(self.ny/nbandavg)))) # Nearest power of 2 to length of data
         # Remove the mean and nan's
@@ -103,13 +103,13 @@ class timeseries(object):
                 NFFT=NFFT,\
                 window=mlab.window_hanning,\
                 scale_by_freq=True)
-        
+
         if plot:
             plt.loglog(frq,Pyy*scale,**kwargs)
             plt.xlabel('Freq. [$radians s^{-1}$]')
             plt.ylabel('PSD')
             plt.grid(b=1)
-        
+
         return Pyy, frq
 
     def autocorr(self,normalize=False,axis=-1):
@@ -125,7 +125,7 @@ class timeseries(object):
 
         ymean = self.y.mean(axis=axis)
         y = self.y - ymean
-        k = range(1,M)
+        k = list(range(1,M))
         tau = np.asarray(k,dtype=np.float)*self.dt
 
         Cyy = [1./(N-kk) * np.sum(y[...,0:-kk]*y[...,kk::],axis=axis) for kk in k ]
@@ -134,17 +134,17 @@ class timeseries(object):
             return Cyy/y.var(), tau
         else:
             return Cyy ,tau
-            
-        
+
+
     def specgram(self, NFFT=256,noverlap=128,plot=True,vv=29, **kwargs):
         """
         Spectrogram plot
         """
         from matplotlib.colors import LogNorm
-        
+
         Pyy,frq,tmid = mlab.specgram(self.y-self.y.mean(),Fs=2*np.pi/self.dt,window=mlab.window_hanning,\
             scale_by_freq=True,noverlap=noverlap,NFFT=NFFT)
-            
+
         if plot==True:
             ax3=plt.gca()
             plt.contourf(tmid*2*np.pi,frq,Pyy,vv,norm=LogNorm(),**kwargs)
@@ -154,29 +154,29 @@ class timeseries(object):
             ax3.set_ylabel("$\\omega [rad.s^{-1}]$")
             plt.colorbar()
             #ax3.set_xticklabels([])
-    
+
         return Pyy,frq,tmid
-        
+
     def filt(self, cutoff_dt, btype='low', order=3, axis=-1):
         """
         Butterworth filter the time series
-        
+
         Inputs:
             cutoff_dt - cuttoff period [seconds]
             btype - 'low' or 'high' or 'band'
         """
-        
+
         if self.isequal==False and self.VERBOSE:
-            print 'Warning - time series is unequally spaced.\
-                Use self.interp to interpolate onto an equal grid'
-        
+            print('Warning - time series is unequally spaced.\
+                Use self.interp to interpolate onto an equal grid')
+
         if not btype == 'band':
             Wn = self.dt/cutoff_dt
         else:
             Wn = [self.dt/co for co in cutoff_dt]
-            
+
         (b, a) = signal.butter(order, Wn, btype=btype, analog=0, output='ba')
-        
+
         # filtfilt only likes to operate along the last axis
         ytmp = np.swapaxes(self.y,-1,axis)
         ytmp = signal.filtfilt(b, a, ytmp, axis=-1)
@@ -186,39 +186,39 @@ class timeseries(object):
     def godinfilt(self,filtwidths=[24,25]):
         """
         Apply the successive Godin-type filter to the data set
-        
+
         The filter widths are defined by filtwidths (hours).
-        
+
         For a 24-25-24 hour filter set filtwidths=[24,25] (default).
         """
-        
+
         if self.isequal==False or self.dt != 3600.:
             # Puts the data onto an hourly matrix
             self._evenly_dist_data(3600.)
-            
+
         ymean = self.running_mean(windowlength=filtwidths[0]*3600.)
         self.y = ymean
         ymean = self.running_mean(windowlength=filtwidths[1]*3600.)
         self.y = ymean
         ymean = self.running_mean(windowlength=filtwidths[0]*3600.)
         self.y = ymean
-        
-            
-           
+
+
+
     def interp(self,timein,method='linear',timeformat='%Y%m%d.%H%M%S',axis=-1):
         """
         Interpolate the data onto an equally spaced vector
-        
+
         timein is either:
             (3x1 tuple) - (tstart,tend,dt)
                 tstart and tend - string with format 'yyyymmdd.HHMMSS'
         or
             datetime vector
-        
+
         method - method passed to interp1d
                - use 'nearest' to preserve masking in gap regions
         """
-        
+
         # Create the time vector
         try:
             tstart=timein[0]
@@ -246,7 +246,7 @@ class timeseries(object):
             if self.ndim > 1:
                 # Interpolate multidimensional arrays without a mask
                 F = interpolate.interp1d(self.tsec, self.y,\
-		    kind=method,axis=axis,\
+                    kind=method,axis=axis,\
                     bounds_error=False,fill_value=0)
 
                 output = F(tsec)
@@ -261,29 +261,29 @@ class timeseries(object):
                 else:
 
                     F = interpolate.interp1d(\
-		    	self.tsec[mask], self.y[mask],\
-			kind=method, axis=axis,\
+                        self.tsec[mask], self.y[mask],\
+                        kind=method, axis=axis,\
                         bounds_error=False, fill_value=0)
 
                     output = F(tsec)
 
         return tnew, output
-        
-        
+
+
     def tidefit(self,frqnames=None,basetime=None,axis=-1):
         """
         Perform a tidal harmonic fit to the data
-        
+
         Returns the amp, phase, frequencies and fitted time series
         """
-        
+
         # Get the tidal fruequencies
         if frqnames is None:
             # This returns the default frequencies from the uspectra class
             frq,frqnames = getTideFreq(Fin=None)
         else:
             frq,frqnames = getTideFreq(Fin=frqnames)
-            
+
         # Call the uspectra method
         #U = uspectra(self.t, self.y, frq=frq, method='lsqfast',axis=axis)
         #amp,phs = U.phsamp(phsbase=basetime)
@@ -295,24 +295,24 @@ class timeseries(object):
              phsbase=basetime, axis=axis)
 
         yfit = harmonic_signal(self.t, amp, phs, mean, frq, phsbase=basetime, axis=axis)
-        
+
         return amp, phs, frq, mean, yfit
         #return amp, phs, frq, frqnames, yfit
-        
+
     def running_harmonic(self,omega,windowlength=3*86400.0,overlap=12*3600.0, plot=True):
         """
-        Running harmonic fit of the time series at frequency, omega. 
-        
+        Running harmonic fit of the time series at frequency, omega.
+
         windowlength - length of each time window [seconds]
         overlap - overlap between windows [seconds]
         """
-        
+
         # Make sure that omega is a list
         try:
             len(omega)
         except:
             omega=[omega]
-        
+
         pt1,pt2 = window_index_time(self.t,windowlength,overlap)
         npt = len(pt1)
         tmid = []
@@ -326,53 +326,53 @@ class timeseries(object):
             U = uspectra(self.t[t1:t2],self.y[t1:t2],frq=omega,method='lsqfast')
             # Reference the phase to the start of the time series
             amp[ii],phs[ii] = U.phsamp(phsbase = self.t[0])
-            
+
             # Return the mid time point
             ind = np.floor(t1 + (t2-t1)/2)
             tmid.append(self.t[ind])
-            
+
             # Return the fitted time series
             ymean[ii] = self.y[t1:t2].mean()
             #yout[t1:t2] += ymean + U.invfft()
 
-            
-        tmid = np.asarray(tmid)
-        
 
-        
+        tmid = np.asarray(tmid)
+
+
+
         if plot:
             plt.subplot(211)
             self.plot()
             plt.plot(tmid,ymean,'r')
             plt.fill_between(tmid,ymean-amp,y2=ymean+amp,color=[0.5,0.5,0.5],alpha=0.5)
             plt.legend(('Original Signal','Harmonic reconstruction'))
-            
+
             ax=plt.subplot(212)
             plt.fill_between(tmid,amp,alpha=0.5)
             plt.xticks(rotation=17)
             plt.ylabel('Amplitude')
             ax.set_xlim([self.t[0],self.t[-1]])
-            
-            
+
+
         return tmid, amp, phs
-            
+
     def running_mean(self,windowlength=3*86400.0):
         """
         Running mean of the time series
-        
+
         windowlength - length of each time window [seconds]
         """
         mask = self.y.mask.copy()
         self.y[self.y.mask]=0.
         self.y.mask=mask
-        
+
         windowsize = np.floor(windowlength/self.dt)
         ytmp = self.y.copy()
         ytmp = self._window_matrix(ytmp,windowsize)
-        
+
         weights = 1./windowsize * np.ones((windowsize,))
         ytmp2 = np.sum(ytmp*weights,axis=-1)
-        
+
         # This result needs to be normalized to account for missing data,
         # this is the same as calculating different weights for each section
         ntmp= np.ones_like(self.y)
@@ -381,9 +381,9 @@ class timeseries(object):
         #norm*= weights
         norm = norm.sum(axis=-1)
         norm /= windowsize
-        
+
         ytmp2/=norm
-                
+
         return self._update_windowed_data(ytmp2,windowsize)
 
     def running_rms(self,windowlength=3*86400.0):
@@ -395,7 +395,7 @@ class timeseries(object):
         mask = self.y.mask.copy()
         self.y[self.y.mask]=0.
         self.y.mask=mask
-        
+
         windowsize = np.floor(windowlength/self.dt)
         ytmp = self.y.copy()
         ytmp = self._window_matrix(ytmp,windowsize)
@@ -412,9 +412,9 @@ class timeseries(object):
         upper=np.inf,lower=-np.inf,maxdiff=np.inf,fillval=0.):
         """
         Despike time series by replacing any values greater than nstd*std.dev with the
-        median of a running window. 
-        
-        nstd - number of standard deviations outside to replace        
+        median of a running window.
+
+        nstd - number of standard deviations outside to replace
         windowlength - length of each time window [seconds]
         overlap - overlap between windows [seconds]
         lower - lower value bound
@@ -423,55 +423,55 @@ class timeseries(object):
         """
 #        if self.isequal==False:
 #            self._evenly_dist_data()
-            
+
         nbad = 0
-        
+
         # Now check the maximum difference
         ydiff = np.zeros_like(self.y)
         ydiff[1::] = np.abs(self.y[1::]-self.y[0:-1])
-        ind = ydiff>=maxdiff        
+        ind = ydiff>=maxdiff
         #self.y[ind]=fillval
         self.y.mask[ind] = True # Mask needs to be set after values are prescribed
         nbad += np.sum(ind)
-        
+
         # First mask any NaN and values outside of bounds
         ind = operator.or_(self.y<=lower,self.y>=upper)
         #self.y[ind]=fillval
         self.y.mask[ind] = True
         nbad += np.sum(ind)
-        
+
         ind =  np.isnan(self.y)
         #self.y[ind]=fillval
         self.y.mask[ind] = True
-        
+
         nbad += np.sum(ind)
-        
+
         # Now calculate the moving median and standard deviation
         windowsize = np.floor(windowlength/self.dt)
         ytmp = self.y.copy()
         ytmp = self._window_matrix(ytmp,windowsize)
-        
+
         ytmp2 = np.mean(ytmp,axis=-1)
         ymean = self._update_windowed_data(ytmp2,windowsize)
-        
+
         #ytmp2= np.std(ytmp,axis=-1)
         ytmp2 = np.apply_along_axis(np.std,-1,ytmp2)
         ystd = self._update_windowed_data(ytmp2,windowsize)
-        
+
         # Mask values outsize of the
         ind = operator.or_(self.y >= ymean + nstd*ystd,\
                 self.y <= ymean - nstd*ystd)
-        
+
         #self.y[ind] = ymedian[ind]
         self.y.mask[ind] = True
-        
+
         nbad += np.sum(ind)
-        
+
         if self.VERBOSE:
-            print 'Despiked %d points'%nbad
-        
-        
-        
+            print('Despiked %d points'%nbad)
+
+
+
     def find_trend(self, axis=-1):
         """
         Return the linear trend as a numpy array
@@ -485,41 +485,41 @@ class timeseries(object):
         # Fit
         model = np.polyfit(self.tsec, ytmp.data.T, 1) # Linear fit
 
-        # 
+        #
         Nz = model.shape[1]
         trend = np.zeros((Nz, self.Nt))
         for kk in range(Nz):
-             trend[kk,:] = np.polyval(model[:,kk], self.tsec)
+            trend[kk,:] = np.polyval(model[:,kk], self.tsec)
 
         return trend
 
     def plot(self,angle=17,**kwargs):
         """
         Plot
-        
+
         Rotates date labels
         """
-        
+
         h1=plt.plot(self.t,self.y.T,**kwargs)
         plt.xticks(rotation=angle)
-        
-        return h1 
-        
+
+        return h1
+
     def fillplot(self,angle=17,alpha=0.7,**kwargs):
         """
-        
+
         """
         h1=plt.fill_between(self.t,self.y,alpha=alpha,**kwargs)
         plt.xticks(rotation=angle)
-        
-        return h1 
+
+        return h1
 
     def get_tslice(self,time1,time2):
         """
         Returns the time indices bounded by time1 and time2
         """
-	t0 = othertime.findNearest(time1,self.t)
-	t1 = othertime.findNearest(time2,self.t)
+        t0 = othertime.findNearest(time1,self.t)
+        t1 = othertime.findNearest(time2,self.t)
         #try:
         #    t0 = othertime.findNearest(time1,self.t)
         #    t1 = othertime.findNearest(time2,self.t)
@@ -528,12 +528,12 @@ class timeseries(object):
         #    t1 = np.searchsorted(self.t, np.datetime64(time2))
 
         #t1 = min( self.Nt, t1+1)
-	t1+=1
-	if t1 > self.t.shape[0]:
-	    t1=self.t.shape[0]
-	#t0-=1
-	#if t0<0:
-	#    t0 = 0
+        t1+=1
+        if t1 > self.t.shape[0]:
+            t1=self.t.shape[0]
+        #t0-=1
+        #if t0<0:
+        #    t0 = 0
 
         return t0, t1
 
@@ -568,17 +568,17 @@ class timeseries(object):
         Returns a subset of the array between time1 and time2
         """
         t0, t1 = self.get_tslice(time1, time2)
-           
+
         return self.t[t0:t1], self.y[..., t0:t1]
-        
+
     def savetxt(self,txtfile):
         f = open(txtfile,'w')
-        
+
         #for t,v in zip(self.tsec,self.y):
         #    f.write('%10.6f\t%10.6f\n'%(t,v))
         for ii in range(self.y.shape[0]):
             f.write('%s, %10.6f\n'%(datetime.strftime(self.t[ii],'%Y-%m-%d %H:%M:%S'),self.y[ii]))
-            
+
         f.close()
 
     def to_xray(self):
@@ -606,14 +606,14 @@ class timeseries(object):
                     attrs = attrs,\
                     coords = coords,\
                )
- 
+
     def copy(self):
         """
         Make a copy of the time-series object in memory
         """
         from copy import deepcopy
         return deepcopy(self)
-        
+
     def _get_tsec(self, time):
 
         # Convert the time to seconds
@@ -622,44 +622,44 @@ class timeseries(object):
         #else:
         #    tsec = othertime.SecondsSince(time,basetime=self.basetime)
 
-	# SecondsSince handle datetime64 objects
-	tsec = othertime.SecondsSince(time,basetime=self.basetime)
+        # SecondsSince handle datetime64 objects
+        tsec = othertime.SecondsSince(time,basetime=self.basetime)
 
         return tsec
- 
+
     def _set_time(self, t):
         """
-	Return the time variable as a datetime object
-	"""
-	if isinstance(t, pd.tseries.index.DatetimeIndex):
-	    return othertime.datetime64todatetime(t.values)
-	elif isinstance(t[0], datetime):
-	    return t
-	elif isinstance(t[0], np.datetime64):
-	    return othertime.datetime64todatetime(t) 
-	else:
-	    raise Exception, 'unknown time type: ', type(t)
+        Return the time variable as a datetime object
+        """
+        if isinstance(t, pd.tseries.index.DatetimeIndex):
+            return othertime.datetime64todatetime(t.values)
+        elif isinstance(t[0], datetime):
+            return t
+        elif isinstance(t[0], np.datetime64):
+            return othertime.datetime64todatetime(t)
+        else:
+            raise Exception('unknown time type: ').with_traceback(type(t))
 
     def _check_dt(self, tsec):
         """
         Check that the time series is equally spaced
         """
         dt = np.diff(tsec)
-        
+
         dt_unique = np.unique(dt)
-        
+
         if np.size(dt_unique) == 1:
             isequal = True
         else:
             isequal = False
-        
+
         try:
             dt = dt[1]
         except:
             dt = 0.0
 
         return dt, isequal
-            
+
     def _interp_nearest(self, tout):
         """
         Nearest interpolation with preseverd mask
@@ -681,47 +681,47 @@ class timeseries(object):
     def _evenly_dist_data(self, dt):
         """
         Distribute the data onto an evenly spaced array
-        
+
         No interpolation is performed
         """
         if self.VERBOSE:
-            print 'inserting the data into an equally-spaced time vector (dt = %f s).'%self.dt
-    
+            print('inserting the data into an equally-spaced time vector (dt = %f s).'%self.dt)
+
         t0 = self.tsec[0]
         t = self.tsec - t0
         # Put the data onto an evenly spaced, masked array
         tout = np.arange(t[0],t[-1]+dt,dt)
-        
+
         tind = np.searchsorted(tout,t) - 1
-        
+
         shape = self.y.shape[:-1] + tout.shape
         yout = np.ma.MaskedArray(np.zeros(shape),mask=True)
 
         yout[...,tind] = self.y
 
-        
+
         ### Slow method
         #def updatetime(tsec):
         #    try:
         #        return np.timedelta64(int(tsec), 's') + self.t[0]
         #    except:
         #        return timedelta(seconds=tsec) + self.t[0]
-        #    
+        #
         #self.t = np.array(map(updatetime,tout))
 
         self.t = tout.astype("timedelta64[s]") + np.datetime64(self.t[0])
 
 
         self.y = yout
-        
+
         self.tsec = tout+t0
-        
+
         self.ny = np.size(self.y)
-        
+
         self.isequal = True
-        
+
         self.dt = dt
-        
+
     def _window_matrix(self,y,windowsize):
         """
         Returns the matrix as a strided array so that 'rolling' operations can
@@ -730,10 +730,10 @@ class timeseries(object):
         windowsize=int(windowsize)
         shape = y.shape[:-1] + (y.shape[-1] - windowsize + 1, windowsize)
         strides = y.strides + (y.strides[-1],)
-        
-        # The masked values get 
+
+        # The masked values get
         return np.lib.stride_tricks.as_strided(y, shape=shape, strides=strides)
-    
+
     def _update_windowed_data(self,ytmp,windowsize):
         """
         Re-inserts data that has been windowed into an array
@@ -741,16 +741,16 @@ class timeseries(object):
         """
         y = np.zeros_like(self.y)
         indent = (windowsize-np.mod(windowsize,2))/2
-        
+
         if np.mod(windowsize,2)==1:
             y[...,indent:-indent]=ytmp
         else:
             y[...,indent-1:-indent]=ytmp
-        
+
         y = np.ma.MaskedArray(y,mask=self.y.mask)
         y.mask[...,0:indent]=True
         y.mask[...,-indent:]=True
-        
+
         return y
 
 class ModVsObs(object):
@@ -787,9 +787,9 @@ class ModVsObs(object):
         time1 = min(tmod[-1],tobs[-1])
 
         if time1 < time0:
-            print 'Error - the two datasets have no overlapping period.'
+            print('Error - the two datasets have no overlapping period.')
             return None
-        
+
         # Clip both the model and observation to this daterange
 
         t0 = othertime.findNearest(time0,tmod)
@@ -810,7 +810,7 @@ class ModVsObs(object):
 
         self.N = self.TSmod.t.shape[0]
         if self.N==0:
-            print 'Error - zero model points detected'
+            print('Error - zero model points detected')
             return None
 
         self.calcStats()
@@ -844,7 +844,7 @@ class ModVsObs(object):
             plt.legend(('Model','Observed'),loc=loc)
 
         return h1, h2, ax
-        
+
     def stackplot(self,colormod='r',colorobs='b',scale=None,ax=None,fig=None,labels=True,**kwargs):
         """
         Stack plot of several time series
@@ -853,10 +853,10 @@ class ModVsObs(object):
             labels = ['z = %1.1f m'%z for z in self.Z.tolist()]
         else:
             labels=None
-        
+
         fig,ax,ll = stackplot(self.TSobs.t,self.TSobs.y,ax=ax,fig=fig,\
             scale=scale,units=self.units,labels=labels,color=colorobs,*kwargs)
-            
+
         fig,ax,ll = stackplot(self.TSmod.t,self.TSmod.y,ax=ax,fig=fig,\
             scale=scale,units=self.units,labels=labels,color=colormod,*kwargs)
 
@@ -926,7 +926,7 @@ class ModVsObs(object):
 
         # RMSE
         self.rmse = rms(self.TSobs.y-self.TSmod.y,axis=-1)
-        
+
         # bian
         self.bias = np.mean(self.TSmod.y - self.TSobs.y, axis=-1)
 
@@ -936,20 +936,20 @@ class ModVsObs(object):
 
         # Correlation coefficient
         self.cc = 1.0/float(self.N) * ( (self.TSobs.y.T-self.meanObs).T * \
-            (self.TSmod.y.T - self.meanMod).T ).sum(axis=-1) / (self.stdObs * self.stdMod) 
+            (self.TSmod.y.T - self.meanMod).T ).sum(axis=-1) / (self.stdObs * self.stdMod)
 
     def printStats(self,f=None,header=True):
         """
         Prints the statistics to a markdown language style table
         """
-        if not self.__dict__.has_key('meanMod'):
+        if 'meanMod' not in self.__dict__:
             self.calcStats()
 
         outstr=''
 
         if header:
             outstr += "|      | Mean Model | Mean Obs. | Std. Mod. | Std Obs | RMSE |   CC   | skill |\n"
-            
+
             outstr += "|------| ---------- | --------- | --------- | ------- | --- | ----- | ------| \n"
 
         outstr += "| %s [%s] | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | \n"%\
@@ -957,7 +957,7 @@ class ModVsObs(object):
             self.rmse,self.cc,self.skill)
 
         if f == None:
-            print outstr
+            print(outstr)
         else:
             f.write(outstr)
 
@@ -970,7 +970,7 @@ class ModVsObs(object):
 
         if header:
             outstr += "| Depth | Mean Model | Mean Obs. | Std. Mod. | Std Obs | RMSE |   CC   | skill |\n"
-            
+
             outstr += "|------| ---------- | --------- | --------- | ------- | --- | ----- | ------| \n"
 
         for ii,zz in enumerate(self.Z.tolist()):
@@ -980,7 +980,7 @@ class ModVsObs(object):
                 self.stdObs[ii], self.rmse[ii],self.cc[ii],self.skill[ii])
 
         if f == None:
-            print outstr
+            print(outstr)
         else:
             f.write(outstr)
 
@@ -1000,7 +1000,7 @@ class ModVsObs(object):
         xmean = self.TSmod.y.mean(axis=axis)
         x = self.TSmod.y - xmean
 
-        k = range(1,M)
+        k = list(range(1,M))
         tau = np.asarray(k,dtype=np.float)*self.TSobs.dt
 
         Cxy = [1./(N-kk) * np.sum(y[...,0:-kk]*x[...,kk::],axis=axis) for kk in k ]
@@ -1009,28 +1009,28 @@ class ModVsObs(object):
             return Cxy/(y.std()*x.std()), tau
         else:
             return Cxy ,tau
- 
+
     def csd(self, plot=True,nbandavg=1,**kwargs):
         """
         Cross spectral density
-        
+
         nbandavg = Number of fft bins to average
         """
-        
+
         if self.isequal==False and self.VERBOSE:
-            print 'Warning - time series is unequally spaced consider using lomb-scargle fft'
-        
+            print('Warning - time series is unequally spaced consider using lomb-scargle fft')
+
 
         NFFT = int(2**(np.floor(np.log2(self.ny/nbandavg)))) # Nearest power of 2 to length of data
-            
+
         Pyy,frq = mlab.csd(self.TSobs.y-self.TSobs.y.mean(),Fs=2*np.pi/self.dt,NFFT=NFFT,window=mlab.window_hanning,scale_by_freq=True)
-        
+
         if plot:
             plt.loglog(frq,Pyy,**kwargs)
             plt.xlabel('Freq. [$cycles s^{-1}$]')
             plt.ylabel('PSD')
             plt.grid(b=1)
-        
+
         return Pyy, frq
 
 
@@ -1038,84 +1038,84 @@ def loadDBstation(dbfile, stationName, varname, timeinfo=None, \
      filttype=None,cutoff=3600.0,output_meta=False,method='linear'):
     """
     Load station data from a database file
-    
+
     Inputs:
         dbfile - location of database file
         stationName - StationName in database
         varname - variable name e.g. 'waterlevel', 'discharge', 'salinity'
-        
+
         timeinfo (optional) - tuple with (starttime,endtime,dt). Format 'yyyymmdd.HHMMSS'
             Use this to interpolate onto a constant time vector
-        filttype (optional) - 'low' or 'high' 
+        filttype (optional) - 'low' or 'high'
             Set this to filter data
-            
+
     Returns:
         timeseries object
         -1 on error
-            
+
     """
-    
+
     outvar = ['NetCDF_Filename','NetCDF_GroupID','StationName']
     tablename = 'observations'
     condition = 'Variable_Name = "%s" and StationID = "%s"' % (varname,stationName)
     #condition = 'Variable_Name = "%s" and StationName LIKE "%%%s%%"' % (varname,stationName)
-    
-    print 'Querying database...'
-    print condition
-    data, query = queryNC(dbfile,outvar,tablename,condition)  
+
+    print('Querying database...')
+    print(condition)
+    data, query = queryNC(dbfile,outvar,tablename,condition)
 
     yout = data[0][varname].squeeze()
     # Zero nan
     yout[np.isnan(yout)] = 0.0
-    
+
     if len(data)==0:
-        print '!!! Warning - Did not find any stations matching query. Returning -1 !!!'
+        print('!!! Warning - Did not find any stations matching query. Returning -1 !!!')
         return -1
     else:
         ts = timeseries(data[0]['time'],yout)
-        
-        
+
+
     if not timeinfo==None:
-        print 'Interpolating station data between %s and %s\n'%(timeinfo[0],timeinfo[1])
+        print('Interpolating station data between %s and %s\n'%(timeinfo[0],timeinfo[1]))
         tnew,ynew =\
             ts.interp((timeinfo[0],timeinfo[1],timeinfo[2]),method=method)
         ts = timeseries(tnew,ynew)
         ts.dt = timeinfo[2] # This needs updating
-        
+
     if not filttype==None:
-        print '%s-pass filtering output data. Cutoff period = %f [s].'%(filttype,cutoff)
+        print('%s-pass filtering output data. Cutoff period = %f [s].'%(filttype,cutoff))
         yfilt = ts.filt(cutoff,btype=filttype,axis=-1)
         ts.y = yfilt.copy()
-    
+
     if output_meta:
-        if data[0].has_key('elevation'):
+        if 'elevation' in data[0]:
             ele = data[0]['elevation']
         else:
             ele = np.array([0.0])
         meta = {'longitude':data[0]['longitude'],'latitude':data[0]['latitude'],'elevation':ele,'StationName':query['StationName'][0]}
-        return ts, meta        
+        return ts, meta
     else:
         return ts
 
 def window_index_time_slow(t,windowsize,overlap):
     """
     Determines the indices for window start and end points of a time vector
-    
+
     The window does not need to be evenly spaced
-    
+
     Inputs:
         t - list or array of datetime objects
         windowsize - length of the window [seconds]
         overlap - number of overlap points [seconds]
-        
+
     Returns: pt1,pt2 the start and end indices of each window
     """
-    
+
     try:
         t=t.tolist()
     except:
         t=t
-        
+
     t1=t[0]
     t2=t1 + timedelta(seconds=windowsize)
     pt1=[0]
@@ -1126,25 +1126,25 @@ def window_index_time_slow(t,windowsize,overlap):
 
         pt1.append(othertime.findNearest(t1,t))
         pt2.append(othertime.findNearest(t2,t))
-        
+
     return pt1, pt2
-    
+
 def window_index_time(t,windowsize,overlap):
     """
     Determines the indices for window start and end points of a time vector
-    
+
     The window does not need to be evenly spaced
-    
+
     Inputs:
         t - list or array of datetime objects
         windowsize - length of the window [seconds]
         overlap - number of overlap points [seconds]
-        
+
     Returns: pt1,pt2 the start and end indices of each window
     """
-    
+
     tsec = othertime.SecondsSince(t)
-        
+
     t1=tsec[0]
     t2=t1 + windowsize
     pt1=[0]
@@ -1155,34 +1155,34 @@ def window_index_time(t,windowsize,overlap):
 
         pt1.append(np.searchsorted(tsec,t1))
         pt2.append(np.searchsorted(tsec,t2))
-        
+
     return pt1, pt2
-    
+
 def pol2cart(th,rho):
     """Convert polar coordinates to cartesian"""
     x = rho * np.cos(th)
     y = rho * np.sin(th)
 
     return x, y
-    
+
 def cart2pol(x,y):
     """
     Convert cartesian to polar coordinates
     """
     th = np.angle(x+1j*y)
     rho = np.abs(x+1j*y)
-    
+
     return th, rho
-    
+
 def ap2ep(uamp,uphs,vamp,vphs):
     """
     Convert u/v amplitude phase information to tidal ellipses
-    
+
     All angles are in radians
-    
+
     Returns:
         SEMA, SEMI, INC, PHS, ECC
-    
+
     Based on the MATLAB ap2ep function:
         https://www.mathworks.com/matlabcentral/fileexchange/347-tidalellipse/content/ap2ep.m
     """
@@ -1198,26 +1198,26 @@ def ap2ep(uamp,uphs,vamp,vphs):
     Wm = np.abs(wm)
     THETAp = np.angle(wp)
     THETAm = np.angle(wm)
-   
+
     # calculate ep-parameters (ellipse parameters)
     SEMA = Wp+Wm              # Semi  Major Axis, or maximum speed
     SEMI = Wp-Wm            # Semin Minor Axis, or minimum speed
     ECC = SEMI/SEMA          # Eccentricity
 
-    PHA = (THETAm-THETAp)/2.0   # Phase angle, the time (in angle) when 
+    PHA = (THETAm-THETAp)/2.0   # Phase angle, the time (in angle) when
                                # the velocity reaches the maximum
-    INC = (THETAm+THETAp)/2.0   # Inclination, the angle between the 
+    INC = (THETAm+THETAp)/2.0   # Inclination, the angle between the
                                # semi major axis and x-axis (or u-axis).
-                               
+
     return SEMA, SEMI, INC, PHA, ECC
-    
+
 def rms(x,axis=-1):
     """
     root mean squared
     """
-    
+
     return np.sqrt(1.0/np.shape(x)[-1] * np.sum(x**2,axis=axis))
-    
+
 def crms(t,y):
     """
     Continous function rms
@@ -1239,7 +1239,7 @@ def skill(xmod, xobs, axis=-1):
     varobs = ((xobs - xobs.mean(axis=axis))**2.).sum(axis=axis)
 
     return 1 - varmod/varobs
-    
+
 def tidalrmse(Ao,Am,Go,Gm):
     """
     Tidal harmonic RMSE
@@ -1255,7 +1255,7 @@ def loadtxt(txtfile):
     Column 2 is the data.
     """
     f = open(txtfile,'r')
-    
+
     t=[]
     y=[]
     for line in f.readlines():
@@ -1263,8 +1263,6 @@ def loadtxt(txtfile):
         ll = line.split(',')
         t.append(datetime.strptime(ll[0],'%Y-%m-%d %H:%M:%S'))
         y.append(float(ll[1]))
-        
+
     f.close()
     return timeseries(np.array(t),np.array(y))
-
-

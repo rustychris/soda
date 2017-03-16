@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import time
 import shutil
 import gdal
-from gdalconst import * 
+from gdalconst import *
 
 from soda.utils.interpXYZ import tile_vector
 
@@ -23,11 +23,11 @@ import pdb
 class DEM(object):
     """
         General DEM class
-    """    
-    
+    """
+
     W = 1.0 # Weight
     maxdist = 250.0
-    
+
     def __init__(self,infile,**kwargs):
         self.infile=infile
         self.__dict__.update(kwargs)
@@ -35,7 +35,7 @@ class DEM(object):
             xgrd,ygrd,self.Z = self.loadnc()
         elif self.infile[-3:] in ['dem','asc']:
             xgrd,ygrd,self.Z = self.readraster()
-        
+
         # Generate the grid
         self.x0 = xgrd.min()
         self.y0 = ygrd.min()
@@ -43,18 +43,18 @@ class DEM(object):
         self.y1 = ygrd.max()
         self.dx= xgrd[1]-xgrd[0]
         self.dy= ygrd[1]-ygrd[0]
-#        
+#
 
         self.nx = len(xgrd)
         self.ny = len(ygrd)
         self.npts = self.nx*self.ny
-#        
+#
         self.X,self.Y = np.meshgrid(xgrd,ygrd)
 
         self.x, self.y = xgrd, ygrd
-        
+
     def loadnc(self):
-        """ Load the DEM data from a netcdf file"""        
+        """ Load the DEM data from a netcdf file"""
         nc = Dataset(self.infile, 'r')
         #print nc.variables.keys()
         try:
@@ -70,17 +70,17 @@ class DEM(object):
                 X = nc.variables['lon'][:]
                 Y = nc.variables['lat'][:]
                 Z = nc.variables['topo'][:]
-                
-                
+
+
         nc.close()
         return X,Y,Z
-        
+
     def interp(self, x, y):
         """
         Interpolate DEM data onto scattered data points using
         scipy.interpolate.RectBivariateSpline
         """
-        if not self.__dict__.has_key('_Finterp'):
+        if '_Finterp' not in self.__dict__:
             self._Finterp = interpolate.RectBivariateSpline(self.y, self.x, self.Z)
             #self._Finterp = interpolate.RegularGridInterpolator((self.y, self.x), self.Z)
 
@@ -93,61 +93,61 @@ class DEM(object):
         gdal.AllRegister()
         # open the image
         ds = gdal.Open(self.infile, GA_ReadOnly)
-        
+
         # Read the x and y coordinates
         cols = ds.RasterXSize
         rows = ds.RasterYSize
         bands = ds.RasterCount
-        
+
         geotransform = ds.GetGeoTransform()
         originX = geotransform[0]
         originY = geotransform[3]
         pixelWidth = geotransform[1]
         pixelHeight = geotransform[5]
-        
+
         x = originX + np.linspace(0,cols-1,cols)*pixelWidth
         y = originY + np.linspace(0,rows-1,rows)*pixelHeight
-        
+
         # Read the actual data
         data = ds.ReadAsArray(0,0,cols,rows)
-        
+
         # Remove missing points
         data[data==-32767]=np.nan
-        
+
         return x, y, data
-    
-        
+
+
     def ravel(self):
         """ Returns the grid coordinates as a vector"""
         return np.concatenate( (np.reshape(np.ravel(self.X),(self.npts,1)),\
             np.reshape(np.ravel(self.Y),(self.npts,1))),axis=1)
-            
+
     def nanxy(self):
         """
             Returns the x,y locations of the nan points
         """
         ind = np.isnan(self.Z)
         nc = np.sum(ind)
-        xy = np.zeros((nc,2)) 
+        xy = np.zeros((nc,2))
         n = -1
-        for jj in range(0,self.ny):  
-            for ii in range(0,self.nx):  
+        for jj in range(0,self.ny):
+            for ii in range(0,self.nx):
                 if ind[jj,ii]:
                     n+=1
                     xy[n,0]=self.X[jj,ii]
                     xy[n,1]=self.Y[jj,ii]
-        
+
         return xy
-        
+
 #        ind = np.isnan(np.ravel(self.Z))
 #        nc = np.sum(ind)
-#        
+#
 #        x=np.ravel(self.X)
 #        y=np.ravel(self.Y)
-#        
+#
 #        return np.concatenate((np.reshape(x[ind],(nc,1)),np.reshape(y[ind],(nc,1))),axis=1)
 
-        
+
     def nonnanxy(self):
         """
             Returns the x,y locations of the non-nan points
@@ -155,24 +155,24 @@ class DEM(object):
         ind = np.isnan(self.Z)
         ind = ind==False
         nc = np.sum(ind)
-        xy = np.zeros((nc,2)) 
+        xy = np.zeros((nc,2))
         n = -1
-        for jj in range(0,self.ny):  
-            for ii in range(0,self.nx):  
+        for jj in range(0,self.ny):
+            for ii in range(0,self.nx):
                 if ind[jj,ii]:
                     n+=1
                     xy[n,0]=self.X[jj,ii]
                     xy[n,1]=self.Y[jj,ii]
-        
+
         return xy
-        
+
 #        ind = np.isnan(np.ravel(self.Z))
 #        ind = ind==False
 #        nc = np.sum(ind)
 #        print nc
 #        x=np.ravel(self.X)
 #        y=np.ravel(self.Y)
-#        
+#
 #        return np.concatenate((np.reshape(x[ind],(nc,1)),np.reshape(y[ind],(nc,1))),axis=1)
 
     def returnij(self,x,y):
@@ -183,32 +183,32 @@ class DEM(object):
         plt.axis('equal')
         return fig
         Returns the grid cell indices that points x,y reside inside of.
-        
+
         """
         I = np.ceil( (x-self.x0)/self.dx)
         J =np.ceil( (y-self.y0)/self.dy)
-        
+
         J = np.array(J,dtype=int)
         I = np.array(I,dtype=int)
-        
+
         # blank out bad cells
         J[J<0]=-1
         J[J>self.ny-1]=-1
         I[I<0]=-1
         I[I>self.nx-1]=-1
-        
+
         return J,I
-        
+
     def calcWeight(self):
-        
+
         """ Calculate the weight at each point """
         MAXPOINTS=20e6
         weight = np.zeros((self.ny,self.nx))
-        
+
         # Calculate the distance from each point to a nan point
         xy = self.nonnanxy()
         xynan = self.nanxy()
-        
+
         # If there are no nan's return W
         if xynan.shape[0] == 0:
             weight[:] = self.W
@@ -216,75 +216,75 @@ class DEM(object):
 
         # Compute the spatial tree
         kd = spatial.cKDTree(xynan)
-        
+
         nxy = len(xy)
-        
+
         if nxy <= MAXPOINTS:
             # Perform query on all of the points in the grid
             dist,ind=kd.query(xy)
-            
+
             # Compute the actual weight
             w = dist/self.maxdist
             #w = (dist-self.maxdist)/self.maxdist # Linear
             w[dist>self.maxdist]=1.0
             w=self.W*w
-            
+
             # Map onto the grid
             J,I=self.returnij(xy[:,0],xy[:,1])
             weight[J,I]=w
         else:
-            print 'Dataset too large - calculating weights for chunks...'
+            print('Dataset too large - calculating weights for chunks...')
             nchunks = np.ceil(len(xy)/MAXPOINTS)
             pt1,pt2=tile_vector(len(xy),int(nchunks))
             for p1,p2 in zip(pt1,pt2):
-                print 'Calculating points %d to %d of %d...'%(p1,p2,nxy)
+                print('Calculating points %d to %d of %d...'%(p1,p2,nxy))
                 dist,ind=kd.query(xy[p1:p2,:])
                 # Compute the actual weight
                 w = dist/self.maxdist
                 w[dist>self.maxdist]=1.0
                 w=self.W*w
-                
+
                 # Map onto the grid
                 J,I=self.returnij(xy[p1:p2,0],xy[p1:p2,1])
                 weight[J,I]=w
-        
-        return weight   
-        
-    def contourf(self,vv=range(-10,0),**kwargs):
+
+        return weight
+
+    def contourf(self,vv=list(range(-10,0)),**kwargs):
         #fig= plt.figure(figsize=(9,8))
         plt.contourf(self.X,self.Y,self.Z,vv,**kwargs)
         plt.colorbar()
         plt.hold(True)
         plt.contour(self.X,self.Y,self.Z,[0.0,0.0],colors='k',linewidths=0.02)
         plt.axis('equal')
-        
-    def contour(self,vv=range(-10,0),**kwargs):
+
+    def contour(self,vv=list(range(-10,0)),**kwargs):
         #fig= plt.figure(figsize=(9,8))
         C = plt.contour(self.X,self.Y,self.Z,vv,colors='k',linestyles='-')
         plt.axis('equal')
         return C
-        
+
     def plot(self,**kwargs):
         #h= plt.figure(figsize=(9,8))
         #h.imshow(np.flipud(self.Z),extent=[bbox[0],bbox[1],bbox[3],bbox[2]])
         plt.imshow(self.Z,extent=[self.x0,self.x1,self.y1,self.y0],**kwargs)
         plt.colorbar()
-        
+
     def savenc(self,outfile='DEM.nc'):
         """ Saves the DEM to a netcdf file"""
-        
+
         # Create the global attributes
-        
+
         globalatts = {'title':'DEM model',\
         'history':'Created on '+time.ctime(),\
         'Input dataset':self.infile}
-        
-        
+
+
         nc = Dataset(outfile, 'w', format='NETCDF4')
         # Write the global attributes
-        for gg in globalatts.keys():
+        for gg in list(globalatts.keys()):
             nc.setncattr(gg,globalatts[gg])
-            
+
         # Create the dimensions
         dimnamex = 'nx'
         dimlength = self.nx
@@ -292,7 +292,7 @@ class DEM(object):
         dimnamey = 'ny'
         dimlength = self.ny
         nc.createDimension(dimnamey,dimlength)
-        
+
         # Create the lat lon variables
         tmpvarx=nc.createVariable('X','f8',(dimnamex,))
         tmpvary=nc.createVariable('Y','f8',(dimnamey,))
@@ -303,7 +303,7 @@ class DEM(object):
         tmpvarx.setncattr('units','metres')
         tmpvary.setncattr('long_name','Northing')
         tmpvary.setncattr('units','metres')
-        
+
         # Write the topo data
         tmpvarz=nc.createVariable('topo','f8',(dimnamey,dimnamex),zlib=True,least_significant_digit=1)
         tmpvarz[:] = self.Z
@@ -311,41 +311,41 @@ class DEM(object):
         tmpvarz.setncattr('units','metres')
         tmpvarz.setncattr('coordinates','X, Y')
         tmpvarz.setncattr('positive','up')
-        
-        nc.close()
-        
-        print 'DEM save to %s.'%outfile
 
-    
+        nc.close()
+
+        print('DEM save to %s.'%outfile)
+
+
 def tile_vector(count,chunks):
     rem = np.remainder(count,chunks)
-    
+
     cnt2 = count-rem
     dx = cnt2/chunks
-    
+
     if count != cnt2:
-        pt1 = range(0,cnt2,dx)
-        pt2 = range(dx,cnt2,dx) + [count]
+        pt1 = list(range(0,cnt2,dx))
+        pt2 = list(range(dx,cnt2,dx)) + [count]
     else:
-        pt1 = range(0,count-dx,dx)
-        pt2 = range(dx,count,dx)  
+        pt1 = list(range(0,count-dx,dx))
+        pt2 = list(range(dx,count,dx))
     return pt1,pt2
-    
+
 def blendDEMs(ncfile,outfile,W,maxdist):
-    ### Combine multiple files ###   
-    
+    ### Combine multiple files ###
+
     #Calculate the weights for each file
     nfiles = len(ncfile)
     ii=-1
     for nc in ncfile:
         ii+=1
         d = DEM(infile=nc,W=W[ii],maxdist=maxdist[ii])
-        print 'Calculating weights for %s...'%nc
-        print 'Weight = %6.3f, maxdist = %f'%(W[ii],maxdist[ii])
+        print('Calculating weights for %s...'%nc)
+        print('Weight = %6.3f, maxdist = %f'%(W[ii],maxdist[ii]))
         w=d.calcWeight()
         ny = d.ny
         nx = d.nx
-        
+
 #        if ii == 1:
 #            f=d.contourf(w,vv=np.linspace(0,W[ii],10))
 #            f.savefig('%s_Weights.pdf'%outfile[:-2])
@@ -355,18 +355,18 @@ def blendDEMs(ncfile,outfile,W,maxdist):
             Wall = np.zeros((ny,nx,nfiles))
         Wall[:,:,ii]=w
         del w
-        
+
     # Normalise the weights
-    print 'Normalising the weights...'
+    print('Normalising the weights...')
     Wsum = np.sum(Wall,axis=2)
     for ii in range(0,nfiles):
         Wall[:,:,ii] = np.squeeze(Wall[:,:,ii]) / Wsum
-        
-        
-        
-        
+
+
+
+
     # Re-load in the depths from each file and sum
-    print 'Writing to an output file...'
+    print('Writing to an output file...')
     Zout = np.zeros((ny,nx))
     filestr = ''
     ii=-1
@@ -375,26 +375,26 @@ def blendDEMs(ncfile,outfile,W,maxdist):
         nc = Dataset(infile, 'r')
         Zin = nc.variables['topo'][:]
         nc.close()
-        
+
         Zin[np.isnan(Zin)]=0.0
-        Zout +=  np.squeeze(Wall[:,:,ii]) * Zin 
+        Zout +=  np.squeeze(Wall[:,:,ii]) * Zin
         filestr +='%s, '%infile
-    
+
     # Copy the data to a new netcdf file
     shutil.copyfile(ncfile[-1],outfile)
     nc = Dataset(outfile, 'r+')
     nc.variables['topo'][:]=Zout
-    
+
     globalatts = {'title':'DEM model',\
         'history':'Created on '+time.ctime(),\
         'Input datasets':filestr}
     # Write the global attributes
-    for gg in globalatts.keys():
+    for gg in list(globalatts.keys()):
         nc.setncattr(gg,globalatts[gg])
-        
+
     nc.close()
-    
-    print 'Completed write to %s.'%outfile
+
+    print('Completed write to %s.'%outfile)
 
 
 #ncfile = [\

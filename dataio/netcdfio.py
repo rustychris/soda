@@ -42,18 +42,18 @@ def dict_toxray(data, ds={}, **kwargs):
     Converts a dictionary with keys as variable names to an
     xray.Dataset object
 
-    The dictionary keys should correspond with variable names in 
+    The dictionary keys should correspond with variable names in
     ncmetadata.yaml
 
     **kwargs are passed directly to xray.DataArray()
     """
-    
-    for vv in data.keys():
-        
-        if ncmeta.has_key(vv):
+
+    for vv in list(data.keys()):
+
+        if vv in ncmeta:
             attrs = ncmeta[vv]['attributes']
         else:
-            print 'Warning variable: %s not in ncmetadata.yaml. Dataset will have no attrs'
+            print('Warning variable: %s not in ncmetadata.yaml. Dataset will have no attrs')
             attrs = {}
 
         da = xray.DataArray(data[vv], attrs = attrs, **kwargs)
@@ -67,21 +67,21 @@ def load_sql_ncstation(dbfile, station_name, varname, otherquery=None):
 
     """
     Load netcdf station data referenced in an sql database file
-    
+
     Inputs:
         dbfile - location of database file
         station_name - StationName in database
         varname - variable name e.g. 'waterlevel', 'discharge', 'salinity'
         otherquery - (optional) string with other query variables
                 e.g 'time_start > "2007-01-01 00:00:00" and time_end < "2008-01-01 00:00:00"'
-        
-           
+
+
     Returns:
         an xray.DataArray object
         -1 on error
-            
+
     """
-    
+
     outvar = ['NetCDF_Filename',\
         'NetCDF_GroupID',\
         'StationName',\
@@ -105,10 +105,10 @@ def load_sql_ncstation(dbfile, station_name, varname, otherquery=None):
         #condition = 'Variable_Name = "%s" and StationName LIKE "%%%s%%"'\
         condition = 'LOWER(Variable_Name) LIKE LOWER("%s") and StationName LIKE "%%%s%%"'\
             %(varname, station_name)
-    
+
     # Query the database
-    print 'Querying database...'
-    print condition
+    print('Querying database...')
+    print(condition)
     query = returnQuery(dbfile,outvar,tablename,condition)
 
     # Loop through and extract the variable datasets from each of the files
@@ -116,7 +116,7 @@ def load_sql_ncstation(dbfile, station_name, varname, otherquery=None):
     ii = 0
     for  ncfile, ncgroup, ncvarname in \
                 zip(query['NetCDF_Filename'], query['NetCDF_GroupID'], query['Variable_Name']):
-        print ncfile, ncgroup
+        print(ncfile, ncgroup)
 
         nc = xray.open_dataset(ncfile, group=ncgroup)
 
@@ -142,83 +142,83 @@ def load_sql_ncstation(dbfile, station_name, varname, otherquery=None):
 # Old routines
 ###################
 def writePointData2Netcdf(ncfile,data,globalatts):
-    """ 
+    """
     Function for writing point/observation data to a grouped netcdf file.
     Each variable is written to a separate group to allow for variable time and/or
     spatial coordinates.
-    
-    Inputs: 
+
+    Inputs:
         ncfile - name of the output netcdf file (string)
         data - list of dictionaries with netcdf data and attribute info
             (see noaatools.py --> extractIOOS for an example of this array)
         globalatts - dictionary with global attributes
 
-    """    
-    
+    """
+
     # Convert the dictionary array to a grouped netcdf file
-    print '################################################'
-    print ' Writing to file: %s...' % ncfile
+    print('################################################')
+    print(' Writing to file: %s...' % ncfile)
     nc = Dataset(ncfile, 'w', format='NETCDF4')
     # Write the global attributes
-    for gg in globalatts.keys():
+    for gg in list(globalatts.keys()):
         nc.setncattr(gg,globalatts[gg])
-    
+
     # Each listing in the dictionary is treated as a separate group
     ctr=-1
     for dd in data:
         # Each variable in the group
         for vv in dd:
-            # Create a group 
+            # Create a group
             ctr = ctr + 1
             groupID = 'groupID_%04d' % ctr
             grp = nc.createGroup(groupID)
-            
+
             # Work out the coordinates and create the dimensions
             for cc in dd[vv]['coords']:
                 dimname = cc['Name']
-                dimlength = np.size(cc['Value']) 
+                dimlength = np.size(cc['Value'])
                 grp.createDimension(dimname,dimlength)
-                print dimname, dimlength
-                
+                print(dimname, dimlength)
+
                 # Create the coordinate variables
                 tmpvar=grp.createVariable(cc['Name'],'f8',(dimname,))
                 tmpvar[:] = cc['Value']
 
-                
+
                 # Create the attributes
-                for aa in cc.keys():
+                for aa in list(cc.keys()):
                     if aa !='Name' and aa !='Value':
-                        tmpvar.setncattr(aa,cc[aa]) 
+                        tmpvar.setncattr(aa,cc[aa])
             # Now create the varible and attribute data
-             
+
             # The dimension info is stored in the coordinates attribute
             coordList = [str(x) for x in dd[vv]['coordinates'].split(', ')]
             tmpvar = grp.createVariable(vv,'f8',(coordList))
             # Write the data
-            print vv, np.size(dd[vv]['Data']), coordList
+            print(vv, np.size(dd[vv]['Data']), coordList)
             tmpvar[:] = dd[vv]['Data']
             # Write the attriute data
-            for aa in dd[vv].keys():
+            for aa in list(dd[vv].keys()):
                 if aa !='Data' and aa !='coords':
-                    tmpvar.setncattr(aa,dd[vv][aa]) 
-    
+                    tmpvar.setncattr(aa,dd[vv][aa])
+
     nc.close()
-    print 'Completed writing file.'    
-    print '################################################'        
+    print('Completed writing file.')
+    print('################################################')
     return
 
 def pointNC2shp(ncfile,shpfile):
 
     """ Create a shapefile of a netcdf file metadata """
-    
+
     w = shapefile.Writer(shapefile.POINT)
     w.field('long_name')
     w.field('StationName')
     w.field('StationID')
-    
+
     # open the netcdf file
     nc = Dataset(ncfile,'r', format='NETCDF4')
-    
+
     # Loop through the groups
     for grp in nc.groups:
         # Loop through the variables
@@ -241,33 +241,33 @@ def pointNC2shp(ncfile,shpfile):
                     StationName = nc.groups[grp].variables[vv].StationName
                 else:
                     StationName='none'
-                
+
                 # Write the station data
                 w.point(lon,lat)
                 w.record(long_name,StationName,StationID)
-    
+
     w.save(shpfile)
-    print 'NetCDF metadata written to shapefile: %s'%shpfile
+    print('NetCDF metadata written to shapefile: %s'%shpfile)
     return
 
 def db2shp(dbfile,shpfile):
     """Converts a database file to a shape file"""
-    
-    #Initialise the shapefile    
+
+    #Initialise the shapefile
     w = shapefile.Writer(shapefile.POINT)
     w.field('long_name')
     w.field('StationName')
     w.field('StationID')
     w.field('start_time')
     w.field('end_time')
-    
+
     # Connect to the database
     conn = sqlite3.connect(dbfile)
     c = conn.cursor()
 
     c.execute('select "X","Y","Variable_Name", "StationName","StationID","time_start","time_end" from observations')
     #c.execute('select "X" from observations')
-    
+
     for row in c:
         #x.append(float(row[0]))
         #y.append(float(row[1]))
@@ -279,13 +279,13 @@ def db2shp(dbfile,shpfile):
         w.record(row[2],row[3],row[4],row[5],row[6])
 
     w.save(shpfile)
-        
+
     c.close()
-    return    
-    
+    return
+
 def createObsDB(dbfile):
     """ Create a database for storing observational netcdf metadata"""
-    
+
     conn = sqlite3.connect(dbfile)
     c = conn.cursor()
     # Create table
@@ -300,23 +300,23 @@ def createObsDB(dbfile):
     fieldtype = ['text','text','text','real','real','real','real','real','real',\
     'text','text','real','real','text','text','text']
 
-    
+
     tablename = 'observations'
-    
+
     # Create a string to create the table
     tablestr='('
     for ff,tt in zip(tablefields,fieldtype):
         tablestr += ff+' '+tt+','
     tablestr = tablestr[:-1] + ')'
-    
-    print tablestr
+
+    print(tablestr)
     createstr = 'CREATE TABLE %s %s' % (tablename,tablestr)
     c.execute(createstr)
-        
-    
+
+
     c.close()
-    return  
-    
+    return
+
 def netcdfObs2DB(ncfile, dbfile, nctype=1):
     """
     Extract the relevant metadata from a netcdf-4 file with groups
@@ -345,12 +345,12 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
                 StationName = nc.groups[grp].variables[vv].StationName
             else:
                 StationName='none'
-                
+
             try:
                 ele = nc.groups[grp].variables['elevation'][:]
             except:
                 ele=[0.0]
-                
+
             times = nc.groups[grp].variables['time']
             dates = num2date([times[0],times[-1]],units=times.units)
 
@@ -374,13 +374,13 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
 
         StationID='none'
         StationName = nc.groups[grp].stationname
-            
+
         try:
             ele = nc.groups[grp].variables[vv].height + \
                 nc.groups[grp].variables['DepthHeight']
         except:
             ele = 0.0
-            
+
         times = nc.groups[grp].variables['time']
         dates = num2date([times[0],times[-1]],units=times.units)
 
@@ -407,13 +407,13 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
 
         StationID=nc.groups[grp].StationID
         StationName = nc.groups[grp].StationName
-            
+
         try:
             ele = - nc.groups[grp].getncattr('Depth') + \
                 nc.groups[grp].getncattr('InstrumentDepth')
         except:
             ele = 0.0
-            
+
         try:
             times = nc.groups[grp].variables['time']
             dates = num2date([times[0],times[-1]],units=times.units)
@@ -422,7 +422,7 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
             dates = [datetime.strptime(times, '%Y-%m-%d %H:%M:%S')]
 
         return lon, lat, long_name, StationID, StationName, ele, dates
- 
+
     def get_meta_type4(nc, grp ,vv):
         """
         Processed IMOS data
@@ -437,58 +437,58 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
         lat = nc.groups[grp].variables['LATITUDE'][:]
         long_name = nc.groups[grp].variables[vv].long_name
 
-        StationID=nc.groups[grp].site_code 
+        StationID=nc.groups[grp].site_code
         StationName = nc.groups[grp].stationname
 
         times = nc.groups[grp].variables['TIME']
         dates = num2date([times[0],times[-1]],units=times.units)
-            
+
         try:
             ele = nc.groups[grp].variables['NOMINAL_DEPTH'][:]
         except:
             ele = nc.groups[grp].instrument_nominal_depth
-            
+
         return lon, lat, long_name, StationID, StationName, ele, dates
- 
- 
-             
+
+
+
     # Write metadata to the sql database
-    
+
     # Open the database
     conn = sqlite3.connect(dbfile)
     c = conn.cursor()
     tablename = 'observations'
-    
+
     # open the netcdf file
     nc = Dataset(ncfile,'r', format='NETCDF4')
-    
+
     # Loop through the groupsind = returnDictInd(ncdict,vv,sta)
     for grp in nc.groups:
         # Loop through the variables
         for vv in nc.groups[grp].variables:
 
-	    if vv in ['time','longitude','latitude','elevation']:
-	    	continue
-               
+            if vv in ['time','longitude','latitude','elevation']:
+                continue
+
             write = True
 
             if nctype==1:
                 lon, lat, long_name, StationID, StationName, ele, dates = \
                     get_meta_type1(nc, grp ,vv)
 
-   
+
             elif nctype == 2:
-                print grp, vv
+                print(grp, vv)
                 lon, lat, long_name, StationID, StationName, ele, dates = \
                     get_meta_type2(nc, grp ,vv)
 
             elif nctype == 3:
-                print grp, vv
+                print(grp, vv)
                 lon, lat, long_name, StationID, StationName, ele, dates = \
                     get_meta_type3(nc, grp ,vv)
 
             elif nctype == 4:
-                print grp, vv
+                print(grp, vv)
                 lon, lat, long_name, StationID, StationName, ele, dates = \
                     get_meta_type4(nc, grp ,vv)
 
@@ -500,8 +500,8 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
                     lat, lon, lon,\
                     lat, lat, dates[0], dates[-1],\
                     ele,ele,StationName,StationID,'Point')
- 
-    
+
+
             if write:
                 # Create the tuple to insert into the database
                 dbstr = '("%s", "%s", "%s", %4.6f, %4.6f, %4.6f, %4.6f, %4.6f, %4.6f, "%s", "%s", %4.6f, %4.6f, "%s", "%s","%s")'%dbtuple
@@ -511,11 +511,11 @@ def netcdfObs2DB(ncfile, dbfile, nctype=1):
                 c.execute('INSERT INTO %s VALUES %s'%(tablename,dbstr))
                 # Save (commit) the changes
                 conn.commit()
-                
-                
+
+
     # Insert a row of data
     #c.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
-    # Close everything                
+    # Close everything
     nc.close()
     c.close()
     return
@@ -525,12 +525,12 @@ def returnGroup(ncfile,grpid):
     For use with query builder
     **Note that the time variable is returned as an array of datetime objects (see datetime module)
     """
-   
+
     nc = Dataset(ncfile,'r', format='NETCDF4')
 
     output = {}
     for vv in nc.groups[grpid].variables:
-        
+
         if vv == 'time':
             times=nc.groups[grpid].variables[vv]
             dates = num2date(times[:],units=times.units)
@@ -538,7 +538,7 @@ def returnGroup(ncfile,grpid):
         else:
             #output.update({vv: np.ravel(nc.groups[grpid].variables[vv][:])})
             output.update({vv:nc.groups[grpid].variables[vv][:]})
-    
+
     nc.close()
     return output
 
@@ -547,7 +547,7 @@ def returnGroupFast(ncfile,grpid,nc):
     For use with query builder
     **Note that the time variable is returned in its netcdf units (faster)
     """
-   
+
     #nc = Dataset(ncfile,'r', format='NETCDF4')
 
     output = {}
@@ -559,31 +559,31 @@ def returnGroupFast(ncfile,grpid,nc):
         else:
             #output.update({vv: np.ravel(nc.groups[grpid].variables[vv][:])})
             output.update({vv:nc.groups[grpid].variables[vv][:]})
-    
+
     #nc.close()
     return output
-    
+
 def returnQuery(dbfile,outvar,tablename,condition):
     """Returns a dictionary with the fields specified in a query
-    
+
     Example condition:
         'Variable_Name = "RH" and start_time >= "2011-01-01 00:00:00"'
-    
-    """    
-    
+
+    """
+
     # Open the database
     conn = sqlite3.connect(dbfile)
     c = conn.cursor()
-    
+
     querystr = 'SELECT %s FROM %s WHERE %s'%(', '.join(outvar),tablename,condition)
     #print querystr
     query = c.execute(querystr)
-    
+
     output = {}
     for vv in outvar:
         output.update({vv:[]})
-    
-    
+
+
     for row in query:
         k=-1
         for vv in outvar:
@@ -594,21 +594,21 @@ def returnQuery(dbfile,outvar,tablename,condition):
 
 def queryNC(dbfile,outvar,tablename,condition,fastmode=False):
     """ Main function for extracting queried data for netcdf files
-    
+
     Example inputs:
     dbfile = 'C:/Projects/GOMGalveston/DATA/GalvestonObs.db'
     outvar = ['NetCDF_Filename','NetCDF_GroupID']
     tablename = 'observations'
     condition = 'Variable_Name = "RH"'
-    """    
+    """
     # Get the query
     query = returnQuery(dbfile,outvar,tablename,condition)
-    
+
     data=[]
     ii=-1
     for ff,gg in zip(query['NetCDF_Filename'],query['NetCDF_GroupID']):
         ii+=1
-        #print 'Extracting data from: %s, Group: %s...'%(ff,gg) 
+        #print 'Extracting data from: %s, Group: %s...'%(ff,gg)
         if fastmode:
             if ii == 0:
                 nc = Dataset(ff,'r', format='NETCDF4')
@@ -627,12 +627,12 @@ def queryNC(dbfile,outvar,tablename,condition,fastmode=False):
 def createObsDict(varname,longname,units,data,time,latitude,longitude,height,stationid,stationname,ncdict=[] ):
     """
     Create the list of dictionaries expected by writePointData2Netcdf
-    
+
     All inputs are lists of arrays except: varname, longname, units should be strings
-    
+
     Can append to a previously created dictionary by setting ncdict
     """
-    
+
     # Initialise the output dictionary
     for ID,nn,lat,lon,hh,tt,dd in zip(stationid,stationname,latitude,longitude,height,time,data):
 
@@ -643,9 +643,9 @@ def createObsDict(varname,longname,units,data,time,latitude,longitude,height,sta
         # Can't put elevation in the "coordinates" list as it expands the array
         attribs = {'StationID':ID,'StationName':nn,'Data':dd,\
             'coordinates':'time, elevation, latitude, longitude','long_name':longname,\
-            'units':units,'coords':coords} 
+            'units':units,'coords':coords}
         ncdict.append({varname:attribs})
-            
+
     return ncdict
 
 # Examples
@@ -659,8 +659,8 @@ def runExample1():
     dbfile = 'C:/Projects/GOMGalveston/DATA/GalvestonObs.db'
     #createObsDB(dbfile)
     netcdfObs2DB(ncfile,dbfile)
-    
-    
+
+
 ####
 # Example 2) Return data from all stations in a database with Variable_Name = varname
 ####
@@ -673,14 +673,14 @@ def runExample2():
     tablename = 'observations'
     varname = 'waterlevel'
     condition = 'Variable_Name = "%s"' % varname
-    
+
     data, query = queryNC(dbfile,outvar,tablename,condition)
-    
+
     # Plot the results in one figure
     datemin = datetime(2011,6,1)
     datemax = datetime(2011,7,1)
     ylim = [27,35] # temp
-    ylim = [0, 100] 
+    ylim = [0, 100]
     fig = plt.figure(figsize=(8,12))
     plt.hold(True)
     k=0
@@ -696,7 +696,6 @@ def runExample2():
         ax.set_ylim(ylim[0],ylim[1])
         ax.grid(True)
         ax.xaxis.set_major_formatter(dates.DateFormatter('%d%b%Y'))
-      
-    fig.autofmt_xdate() 
+
+    fig.autofmt_xdate()
     plt.show()
-              

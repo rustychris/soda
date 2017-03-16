@@ -10,8 +10,8 @@ Stanford University
 March 2014
 """
 
-from sunpy import Spatial
-from sunslice import MultiSliceEdge
+from .sunpy import Spatial
+from .sunslice import MultiSliceEdge
 import soda.utils.mypandas as mpd
 from soda.utils.timeseries import timeseries
 from soda.utils.maptools import maskShpPoly
@@ -37,7 +37,7 @@ class Energetics(Spatial):
     etavar='eta_avg' # 'eta_avg' or 'eta'
 
     verbose=False
-    
+
     def __init__(self,ncfile,**kwargs):
         """
         Calculates the energy variables from suntans output
@@ -49,9 +49,9 @@ class Energetics(Spatial):
         """
         Calculate the terms for tstep
         """
-        if self.verbose: print 'Calculating energy at time step: %d'%tstep
-        if cellindex==None: 
-            self.cellindex=range(self.Nc)
+        if self.verbose: print('Calculating energy at time step: %d'%tstep)
+        if cellindex==None:
+            self.cellindex=list(range(self.Nc))
         else:
             self.cellindex=cellindex
 
@@ -61,7 +61,7 @@ class Energetics(Spatial):
         # Step 1: Load the flux variable and the vertical depths
         # These are needed for depth integrals and upwind calculations
         ###
-        if self.verbose: print 'Loading raw model data...'
+        if self.verbose: print('Loading raw model data...')
 
         self.dzf = self.loadData(variable='dzf')
         # dzf is calculated using max free surface height
@@ -69,7 +69,7 @@ class Energetics(Spatial):
 
         self.u=self.loadData(variable=self.fluxvar)
         if self.fluxvar=='U':
-            if self.verbose: print 'Calculating U to flow rate...'
+            if self.verbose: print('Calculating U to flow rate...')
             #TBC
 
         # Load the cell variable used by others at all depth
@@ -97,17 +97,17 @@ class Energetics(Spatial):
         self.energy={}
         ###
         # Term: Vertical PE flux
-        if self.verbose: print 'Calculating vertical buoyancy flux...'
+        if self.verbose: print('Calculating vertical buoyancy flux...')
         self.energy.update({'B_flux':self.calc_buoyflux()})
 
         ###
-        # Term: Wind work 
-        if self.verbose: print 'Calculating the wind work...'
+        # Term: Wind work
+        if self.verbose: print('Calculating the wind work...')
         self.energy.update({'W_work':self.calc_windwork()})
 
         ###
         # Depth integrated KE and PE
-        if self.verbose: print 'Calculating energy...'
+        if self.verbose: print('Calculating energy...')
         self.KE = self.calc_KE(u=self.uc,v=self.vc)
         self.energy.update({'KE':self.depthint(self.KE,dz=self.dzz)})
 
@@ -116,12 +116,12 @@ class Energetics(Spatial):
 
         ###
         # Dissipation
-        if self.verbose: print 'Calculating dissipation...'
+        if self.verbose: print('Calculating dissipation...')
         self.energy.update({'diss':self.calc_dissipation()})
 
         ###
         # Flux terms
-        if self.verbose: print 'Calculating energy flux divergence terms...'
+        if self.verbose: print('Calculating energy flux divergence terms...')
 
         # Pressure work flux
 
@@ -140,9 +140,9 @@ class Energetics(Spatial):
         !! Note that all terms are converted to Wm-2 (multiplied by rho0) !!
         !! Divergent terms are divided by cell area (self.Ac) !!!
         """
-        tstep = range(0,self.Nt)[trange[0]:trange[1]]
+        tstep = list(range(0,self.Nt))[trange[0]:trange[1]]
         # Write the output to netcdf
-        print 'Writing the output to netcdf...'
+        print('Writing the output to netcdf...')
 
         self.writeNC(outfile)
 
@@ -184,7 +184,7 @@ class Energetics(Spatial):
         self.create_nc_var(outfile, 'diss', ('time','Nc'),\
             {'long_name':'Dissipation rate',\
             'units':'W m-2','coordinates':'yv xv'})
-        
+
         # Testing variables
         self.create_nc_var(outfile, 'S2', ('time','Nk','Nc'),\
             {'long_name':'Shear squared',\
@@ -192,17 +192,17 @@ class Energetics(Spatial):
         self.create_nc_var(outfile, 'Pressure', ('time','Nk','Nc'),\
             {'long_name':'Pressure',\
             'units':'Pa','coordinates':'yv xv'})
- 
 
- 
-        
+
+
+
         # Calculate the energy for each time step and write the output
-        print 'Writing the variable data to netcdf...'
+        print('Writing the variable data to netcdf...')
         nc = Dataset(outfile,'a')
 
         for ii, tt in enumerate(tstep):
             # Call the object to calculate the variables
-            print 'Writing energy for timestep %d of %d...'%(tt,tstep[-1])
+            print('Writing energy for timestep %d of %d...'%(tt,tstep[-1]))
             self.__call__(tt)
 
             # Write the variable data out
@@ -227,7 +227,7 @@ class Energetics(Spatial):
         """
         Overloaded vertical gradient calculation function
 
-        Make sure the calculation is consistent with turbulence.c 
+        Make sure the calculation is consistent with turbulence.c
         Gradients are evaluated at k-1/2
 
         """
@@ -243,7 +243,7 @@ class Energetics(Spatial):
 
         # Specify the surface gradient the same as the next layer
         ctop = self.getctop(self.eta)
-        j = range(Nc)
+        j = list(range(Nc))
         dphi_dz[ctop[j],j] = dphi_dz[ctop[j]+1,j]
 
         # Specify the seabed gradients
@@ -271,7 +271,7 @@ class Energetics(Spatial):
         facemask = np.zeros((self.Nc,self.maxfaces))
         facemask[mask==False]=1.0
 
-        face[mask]=0 # Index the mask to the first cell 
+        face[mask]=0 # Index the mask to the first cell
         #   (this is multiplied by zero later..)
 
         # Calculate the fluxes at all cells - dimensions: [Nk, Nc, nfaces]
@@ -306,7 +306,7 @@ class Energetics(Spatial):
         facemask = np.zeros((self.Nc,self.maxfaces))
         facemask[mask==False]=1.0
 
-        face[mask]=0 # Index the mask to the first cell 
+        face[mask]=0 # Index the mask to the first cell
         #   (this is multiplied by zero later..)
 
         # Calculate the fluxes at all cells - dimensions: [Nc, nfaces]
@@ -334,7 +334,7 @@ class Energetics(Spatial):
         #H = self.depthint(self.dzz,dz=self.dzz,cumulative=True) # total depth
         #self.pressure += H*GRAV # H = eta - z
         self.pressure += self.eta*GRAV
-        
+
         #return self.calc_fluxdivergence(self.pressure/RHO0)
         return self.calc_fluxdivergence(self.pressure)
 
@@ -348,7 +348,7 @@ class Energetics(Spatial):
         tau_y = self.loadData(variable='tau_y')
 
         return (u_surf*tau_x + v_surf*tau_y)/RHO0
-        
+
     def calc_buoyflux(self):
         """
         Calculates the vertical flux of buoyancy:
@@ -371,11 +371,11 @@ class Energetics(Spatial):
         dv_dz = self.gradZ(self.vc,self.dzz)
         self.S2 = (du_dz**2 + dv_dz**2)
         # Zero the seabed shear - it is too large??
-        self.S2[self.Nk,range(self.Nc)]=0
+        self.S2[self.Nk,list(range(self.Nc))]=0
 
         diss = self.nu_v * self.S2
 
-        return self.depthint(diss,dz=self.dzz) 
+        return self.depthint(diss,dz=self.dzz)
 
 ########################
 ########################
@@ -392,7 +392,7 @@ def energy_budget(energyfile,polyfile,trange):
     mask,maskpoly = maskShpPoly(sun.xv,sun.yv,polyfile)
 
     # Initialise the output dictionary
-    tstep = range(0,sun.Nt)[trange[0]:trange[1]]
+    tstep = list(range(0,sun.Nt))[trange[0]:trange[1]]
     nt = len(tstep)
 
     budget ={}
@@ -400,7 +400,7 @@ def energy_budget(energyfile,polyfile,trange):
         budget.update({vv:np.zeros((nt,))})
 
     for ii,tt in enumerate(tstep):
-        print 'Area-integrating step: %d of %d...'%(ii,tstep[-1])
+        print('Area-integrating step: %d of %d...'%(ii,tstep[-1]))
         for vv in varnames:
             sun.tstep=[tt]
             data = sun.loadData(variable=vv)
@@ -423,7 +423,7 @@ def energy_budget(energyfile,polyfile,trange):
 def calc_avg_budget(sun, trange, cellindex,plot=False):
     """
     Calculate the volume, temperature and salt budgets from
-    an average output file. 
+    an average output file.
 
     These calculations are very specific to the variables
     stored in the averages file.
@@ -434,7 +434,7 @@ def calc_avg_budget(sun, trange, cellindex,plot=False):
     #sun = Spatial(avgfile,klayer=[-99])
 
     # Calculate the time dimensions
-    tstep = range(0,sun.Nt)[trange[0]:trange[1]]
+    tstep = list(range(0,sun.Nt))[trange[0]:trange[1]]
     nt = len(tstep)
     time = sun.time[tstep]
 
@@ -455,7 +455,7 @@ def calc_avg_budget(sun, trange, cellindex,plot=False):
     sumarea = np.sum(area)
 
     face = sun.face[cellindex,:] # edge pointers for each cell
-    normal = 1.0*sun.normal[cellindex,:] 
+    normal = 1.0*sun.normal[cellindex,:]
 
     # Create a mask so that the masked face values are not included
     # in the flux calculations
@@ -486,7 +486,7 @@ def calc_avg_budget(sun, trange, cellindex,plot=False):
     ###
     for ii,tt in enumerate(tstep):
         sun.tstep=[tt]
-        print 'Calculating budget for time = %d of %d'%(tt,tstep[-1])
+        print('Calculating budget for time = %d of %d'%(tt,tstep[-1]))
         # Load the depth-average and flux quantities
         s_dz = sun.loadDataRaw(variable='s_dz')
         T_dz = sun.loadDataRaw(variable='T_dz')
@@ -508,15 +508,15 @@ def calc_avg_budget(sun, trange, cellindex,plot=False):
 
         # Compute the total mass/tracer flux in/out of each cell
         # sum along all dimension edges
-        Mass = Mflux_cell.sum(axis=-1)  
-        Salt = Sflux_cell.sum(axis=-1)  
+        Mass = Mflux_cell.sum(axis=-1)
+        Salt = Sflux_cell.sum(axis=-1)
         Temp = Tflux_cell.sum(axis=-1)
         # Sum along all depth
         Mass = Mass.sum(axis=0)
         Salt = Salt.sum(axis=0)
         Temp = Temp.sum(axis=0)
 
-        # Sum all cells 
+        # Sum all cells
         Mass_f[ii] = Mass.sum()
         Salt_f[ii] = Salt.sum()
         Temp_f[ii] = Temp.sum()
@@ -578,8 +578,8 @@ def calc_avg_budget(sun, trange, cellindex,plot=False):
     Sflux_s = s_surf[1:]# psu m3 s-1
 
     # Compute the error (residual) in each budget
-    Err_V =(Tend_V - Adv_V) 
-    Err_T = (Tend_T - Adv_T - Sflux_T) 
+    Err_V =(Tend_V - Adv_V)
+    Err_T = (Tend_T - Adv_T - Sflux_T)
     Err_s = (Tend_s - Adv_s - Sflux_s)
 
     # Output time
@@ -662,13 +662,13 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
     #    else:
     #        SE.update_xy(xpt,ypt)
     #
- 
+
     SE.tstep = SE.getTstep(tstart,tend)
 
-    print 'Loading the salt flux data...'
+    print('Loading the salt flux data...')
     #s_F_all= SE.loadData(variable='s_F')
     s_F_all= SE.loadData(variable=scalarvar)
-    print 'Loading the flux data...'
+    print('Loading the flux data...')
     Q_all = SE.loadData(variable='U_F')
 
 
@@ -706,12 +706,12 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
 
         # Calculate the salt flux for each time step
 
-        Qs = np.zeros((Nt,Ns,Ne))# 
-        #Fs = np.zeros((Nt,Ne))# 
+        Qs = np.zeros((Nt,Ns,Ne))#
+        #Fs = np.zeros((Nt,Ne))#
         #dQds = np.zeros((Nt,Ns,Ne))# put salt in last dimension for easy  multiplication
         for tt in range(Nt):
-            
-            # Create an array output array Q_S 
+
+            # Create an array output array Q_S
             # This sums duplicate elements
             Q_S = sparse.coo_matrix((Q[tt,...].ravel(),\
                 (sindex[tt,...].ravel(),jindex[tt,...].ravel())),\
@@ -767,7 +767,7 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
         sindex = np.searchsorted(saltbins,salt)
         sindex[sindex>=nbins]=nbins-1
 
-        # Create an array output array Q_S 
+        # Create an array output array Q_S
         # This sums duplicate elements
         Q_S_x = sparse.coo_matrix((Q.ravel(),(sindex.ravel(),jindex.ravel())),\
             shape=(nbins,ne)).todense()
@@ -782,7 +782,7 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
         tindex = np.repeat(tindex,SE.Nkmax,axis=1)
 
 
-        # Create an array output array Q_S 
+        # Create an array output array Q_S
         # This sums duplicate elements
         Q_S_t = sparse.coo_matrix((Q.ravel(),(sindex.ravel(),tindex.ravel())),\
             shape=(nbins,Nt)).todense()
@@ -799,7 +799,7 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
         ###
         ds = np.diff(saltbins).mean()
         dsdt_inv = 1./(ds*Nt)
-        saltbins = 0.5*(saltbins[1:] + saltbins[0:-1]) 
+        saltbins = 0.5*(saltbins[1:] + saltbins[0:-1])
 
         # Units are: [m^3 s^-1 psu^-1]
         dQ_S_x = np.diff(Q_S_x,axis=0) * dsdt_inv
@@ -812,10 +812,10 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
         ###
         ind_in = dQ_S>=0
         ind_out = dQ_S<0
-        Fin = np.sum(saltbins[ind_in] * -dQ_S[ind_in]*ds) 
-        Fout = np.sum(saltbins[ind_out] * -dQ_S[ind_out]*ds) 
-        Qin = np.sum(-dQ_S[ind_in]*ds) 
-        Qout = np.sum(-dQ_S[ind_out]*ds) 
+        Fin = np.sum(saltbins[ind_in] * -dQ_S[ind_in]*ds)
+        Fout = np.sum(saltbins[ind_out] * -dQ_S[ind_out]*ds)
+        Qin = np.sum(-dQ_S[ind_in]*ds)
+        Qout = np.sum(-dQ_S[ind_out]*ds)
 
         # Put all of the relevant variables into a dictionary
         output = {'x':x,'time':SE.time[SE.tstep],'saltbins':saltbins,\
@@ -826,7 +826,7 @@ def calc_isopycnal_discharge(ncfile,xpt,ypt,saltbins,tstart,tend,scalarvar='salt
 
     output =[]
     outputf =[]
-    print 'Calculating slice fluxes...'
+    print('Calculating slice fluxes...')
     ii=-1
     Qbar = np.zeros((len(Q_all),SE.Nkmax))
     for s_F,Q in zip(s_F_all,Q_all):
@@ -874,17 +874,17 @@ def calc_salt_flux(ncfile,xpt,ypt,tstart,tend):
     #SE = SliceEdge(ncfile,xpt=xpt,ypt=ypt)
 
     if tstart==None:
-        SE.tstep = range(len(SE.time))
+        SE.tstep = list(range(len(SE.time)))
     else:
         SE.tstep = SE.getTstep(tstart,tend)
 
-    print 'Loading the area data...'
+    print('Loading the area data...')
     A_all= SE.loadData(variable='area')
     #print 'Loading the salt data...'
-    #S_all= SE.loadData(variable='salt') # psu 
+    #S_all= SE.loadData(variable='salt') # psu
     #print 'Loading the salt flux data...'
     #F_all= SE.loadData(variable='s_F') # psu m3 s-1
-    print 'Loading the flux data...'
+    print('Loading the flux data...')
     Q_all = SE.loadData(variable='U_F')
 
 
@@ -959,7 +959,7 @@ def calc_salt_flux(ncfile,xpt,ypt,tstart,tend):
 
 def volume_integrate(ncfile,varnames,shpfiles,constantdzz=False):
     """
-    Volume integrate a suntans variable for all time in the domain 
+    Volume integrate a suntans variable for all time in the domain
     specified with a shpfile polygon
     """
     # Use numexpr to try and speed things up
@@ -995,15 +995,15 @@ def volume_integrate(ncfile,varnames,shpfiles,constantdzz=False):
     #dzz = np.repeat(sun.dz[:,np.newaxis],sun.Nc,axis=1)
     for ii in range(sun.Nt):
         sun.tstep = [ii]
-        print 'Volume integrating for time step: %d of %d...'%(ii,sun.Nt)
+        print('Volume integrating for time step: %d of %d...'%(ii,sun.Nt))
 
         # Load the depth and mean age arrays
         if not constantdzz:
             dzz = sun.loadData(variable='dzz')
-            # Calculate the total volume 
+            # Calculate the total volume
             #h = np.sum(dzz,axis=0)
             h = ne.evaluate("sum(dzz,axis=0)")
-        
+
         for varname in varnames:
             tmp = sun.loadData(variable=varname)
 
@@ -1011,10 +1011,10 @@ def volume_integrate(ncfile,varnames,shpfiles,constantdzz=False):
                 V, A = sun.areaint(h,mask=mask) # Depth*area
                 data[poly]['V'][ii] = V
 
-                # Get the depth-integral 
+                # Get the depth-integral
                 #tmp_dz = sun.depthint(tmp,dz=dzz)
                 tmp_dz = ne.evaluate("sum(tmp*dzz,axis=0)")
-                
+
                 # Calculate the volume-integral
                 #tmp_dV, A = sun.areaint(tmp_dz,mask=mask)
                 tmp_dV = ne.evaluate("sum(tmp_dz*Ac*mask)")
@@ -1025,7 +1025,7 @@ def volume_integrate(ncfile,varnames,shpfiles,constantdzz=False):
 
 def area_integrate(ncfile,varnames,shpfiles):
     """
-    Area integrate a suntans variable for all time in the domain 
+    Area integrate a suntans variable for all time in the domain
     specified with a shpfile polygon
     """
     # Use numexpr to try and speed things up
@@ -1053,9 +1053,9 @@ def area_integrate(ncfile,varnames,shpfiles):
         for varname in varnames:
             data[poly].update({varname:np.zeros((sun.Nt,))})
 
-    sun.tstep = range(sun.Nt)
+    sun.tstep = list(range(sun.Nt))
     for varname in varnames:
-        print 'Area integrating varibles: %s ...'%(varname)
+        print('Area integrating varibles: %s ...'%(varname))
         tmp = sun.loadData(variable=varname)
         for mask,poly in zip(masks,polynames):
             tmp_dA = ne.evaluate("sum(tmp*Ac*mask,axis=1)")
@@ -1066,7 +1066,7 @@ def area_integrate(ncfile,varnames,shpfiles):
 
 def river_discharge(ncfile,shpfiles):
     """
-    Calculates the river flux of all type-2 boundaries located with each polygon 
+    Calculates the river flux of all type-2 boundaries located with each polygon
     specified with a shpfile polygon
     """
 
@@ -1093,15 +1093,15 @@ def river_discharge(ncfile,shpfiles):
     for poly  in polynames:
         data.update({poly:{'Q_r':np.zeros((sun.Nt,)),'time':sun.time}})
 
-    print 'Loading the data...'
+    print('Loading the data...')
     #U = sun.loadData(variable='U_F')
-    sun.tstep = range(sun.Nt)
+    sun.tstep = list(range(sun.Nt))
     U = np.zeros((sun.Nt,sun.Nkmax,ind.shape[0]))
     for tt in range(sun.Nt):
-        sun.tstep = tt 
+        sun.tstep = tt
         tmp = sun.loadData(variable='U_F')
         U[tt,...] = tmp[:,ind]
-        print '\t%d of %d...'%(tt,sun.Nt)
+        print('\t%d of %d...'%(tt,sun.Nt))
 
     for mask,poly in zip(masks,polynames):
         tmp_dA  = np.sum( np.sum(U*mask,axis=-1), axis=-1)
@@ -1120,6 +1120,3 @@ def river_discharge(ncfile,shpfiles):
 ####
 #
 #budget = calc_avg_budget(ncfile,trange,cellindex,plot=True)
-
-
-

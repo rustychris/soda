@@ -16,16 +16,16 @@ Example
 >>> 'windspeed','winddirn']
 >>> ncfile = 'C:/Projects/GOMGalveston/DATA/Ocean/USIOOS_OceanObs_20102011.nc'
 >>> shpfile = 'C:/Projects/GOMGalveston/DATA/Ocean/USIOOS_OceanObs_20102011.shp'
->>> 
+>>>
 >>> # Extract the data
 >>> data = extractIOOS(varlist,startt,endt,latlon)
->>> 
+>>>
 >>> # Write to a netcdf file
 >>> globalatts = {'title':'US-IOOS oceanographic observation data',\
 >>> 'history':'Created on '+datetime.ctime(datetime.now()),\
 >>> 'source':'http://opendap.co-ops.nos.noaa.gov/dods/IOOS/'}
 >>> netcdfio.writePointData2Netcdf(ncfile,data,globalatts)
->>> 
+>>>
 >>> # Write the metadata to a shapefile
 >>> netcdfio.pointNC2shp(ncfile,shpfile)
 """
@@ -36,7 +36,7 @@ import scipy.io as io
 import time
 from datetime import datetime, timedelta
 from othertime import MinutesSince
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from xml.dom import minidom
 import netcdfio
 
@@ -58,7 +58,7 @@ def extractIOOS(varlist,startt,endt,latlon,tformat='%Y%m',findtime=True):
         starttime=[startt]
         endtime=[endt]
 
-    
+
     # Build up the output data as a list of dictionaries
     meta=[]
     for vv in varlist:
@@ -66,23 +66,23 @@ def extractIOOS(varlist,startt,endt,latlon,tformat='%Y%m',findtime=True):
             coords = [{'Name':'longitude','Value':lon,'units':'degrees East'},\
             {'Name':'latitude','Value':lat,'units':'degrees North'},\
             {'Name':'time','Value':[],'units':'minutes since 1970-01-01 00:00:00'}]
-            attribs = {'StationID':str(ID),'StationName':nn,'Data':[],'coordinates':'time, longitude, latitude','coords':coords} 
-            
+            attribs = {'StationID':str(ID),'StationName':nn,'Data':[],'coordinates':'time, longitude, latitude','coords':coords}
+
             meta.append(attribs)
-    
+
     # Main for loop for extracting data
     data=[]
     k=-1
-    for vv in varlist:    
-        for ID in stationID: 
+    for vv in varlist:
+        for ID in stationID:
             k+=1
             tmp = {vv:meta[k]}
             ctr=0
             for t1,t2 in zip(starttime,endtime):
                 output,t,atts = getData(str(ID),t1,t2,vv)
-                if ctr==0:                
+                if ctr==0:
                     tmp[vv].update(atts)
-                
+
                 # Append the data to the list array
                 tmp[vv]['Data'] += output
                 # Append the time data
@@ -90,21 +90,21 @@ def extractIOOS(varlist,startt,endt,latlon,tformat='%Y%m',findtime=True):
                 for cc in tmp[vv]['coords']:
                     ctr+=1
                     if cc['Name']=='time':
-                        tmp[vv]['coords'][ctr]['Value'] += t 
+                        tmp[vv]['coords'][ctr]['Value'] += t
             if np.size(tmp[vv]['Data']) > 0:
-                data.append(tmp)    
-    
+                data.append(tmp)
+
     return data
-    
+
 def extractIOOSold(varlist,startt,endt,latlon,outfile):
     """ (Deprecated) Main function for extracting data from the IOOS server"""
-        
+
     # Get the station ID's to retrieve
     x,y,stationID,name = queryStations(latlon)
-    
+
     # Build up a list of monthly start and end dates
     starttime,endtime=getStartEndDates(startt,endt)
-    
+
     # Build up the output data as a list of dictionaries
     data=[]
     for lon,lat,ID,nn in zip(x,y,stationID,name):
@@ -112,9 +112,9 @@ def extractIOOSold(varlist,startt,endt,latlon,outfile):
         for vv in varlist:
             tmpdict[vv]=np.zeros([0,1])
             tmpdict[vv+'_time']=np.zeros([0,1])
-        
+
         data.append(tmpdict)
-    
+
     # Main for loop for extracting data
     k=-1
     for ID in stationID:
@@ -125,20 +125,20 @@ def extractIOOSold(varlist,startt,endt,latlon,outfile):
                 # Append the data to the list array
                 data[k][vv] = np.concatenate((data[k][vv],output))
                 data[k][vv+'_time']= np.concatenate((data[k][vv+'_time'],t))
-    
-    
-    print '######################## Finsished Download #######################'            
+
+
+    print('######################## Finsished Download #######################')
     output={'data':data}
     io.savemat(outfile,output,appendmat=False)
-    print 'Data saved to: %s' % outfile
+    print('Data saved to: %s' % outfile)
     return output
-    
+
 def getData(station_id,starttime,endtime,outvar):
-    """ 
+    """
     Access data from the NOAA opendap database.pointNC2shp(ncfile,shpfile)
     Usage example:
         data,t = getData("8639348","20120501","20120512","conductivity")
-    
+
     Input variables:
         station_id: string
         starttime: string "yyyymmdd"
@@ -149,11 +149,11 @@ def getData(station_id,starttime,endtime,outvar):
     Output Variables:
         data: vector of floats with data
         t: time vector (matlab datenum format)
-   
+
     Note that this is not a netcdf file dataserver.
     See this website for guidance:
    https://oceana.mbari.org/confluence/display/OneStopShopping/Examples+using+pydap+from+Python+to+access+BOG+data+via+DRDS
-    
+
     """
     # Items unique to each data site
     baseurl = "http://opendap.co-ops.nos.noaa.gov/dods/IOOS/"
@@ -167,13 +167,13 @@ def getData(station_id,starttime,endtime,outvar):
         # Conductivity (millisiemens/cm)
         url = baseurl + "Conductivity"
         seqname='CONDUCTIVITY_PX'
-        varname = 'CONDUCTIVITY' 
+        varname = 'CONDUCTIVITY'
         attribs = {'long_name':'Water conductivity','units':'millisiemens/cm'}
     elif outvar == 'watertemp':
         # Water temperature (degC)
         url = baseurl + "Water_Temperature"
         seqname='WATER_TEMPERATURE_PX'
-        varname = 'WaterTemp'  
+        varname = 'WaterTemp'
         attribs = {'long_name':'Water temperature','units':'degreesC'}
     elif outvar == 'airtemp':
         # Air Temperature (degC)
@@ -199,18 +199,18 @@ def getData(station_id,starttime,endtime,outvar):
         seqname='WIND_PX'
         varname = 'Wind_Direction'
         attribs = {'long_name':'Wind direction','units':'degrees'}
-        
-        
+
+
     # Open the database
     nc = open_url(url)
-    
+
     #my_station = nc.WATERLEVEL_6MIN_VFD_PX[(nc.WATERLEVEL_6MIN_VFD_PX._STATION_ID == station_id) & \
     #    (nc.WATERLEVEL_6MIN_VFD_PX._DATUM == "MSL") & \
     #    (nc.WATERLEVEL_6MIN_VFD_PX._BEGIN_DATE ==starttime) & \
     #    (nc.WATERLEVEL_6MIN_VFD_PX._END_DATE==endtime)]
-    
-    print 'Retrieving data '+outvar+' @ site # '+station_id+' for date range: '+\
-        starttime+' to '+endtime+'...'
+
+    print('Retrieving data '+outvar+' @ site # '+station_id+' for date range: '+\
+        starttime+' to '+endtime+'...')
     try:
         # Build a query with the server
         if outvar == 'waterlevel':
@@ -222,9 +222,9 @@ def getData(station_id,starttime,endtime,outvar):
         else:
             my_station = nc[seqname][(nc[seqname]._STATION_ID == station_id) & \
                 (nc[seqname]._BEGIN_DATE ==starttime) & \
-                (nc[seqname]._END_DATE==endtime)] 
-        
-        print "Query ok - downloading data..."        
+                (nc[seqname]._END_DATE==endtime)]
+
+        print("Query ok - downloading data...")
         # Get the data
         #data = np.zeros((len(my_station['DATE_TIME']),1))
         #t = np.zeros((len(my_station['DATE_TIME']),1))
@@ -237,26 +237,26 @@ def getData(station_id,starttime,endtime,outvar):
             t.append(parseDate(dt))
             k=k+1
     except:
-        print "The date range and/or the variable: " + varname + " are not available from station #: "+station_id
+        print("The date range and/or the variable: " + varname + " are not available from station #: "+station_id)
         #data = np.zeros([0,1])
         #t=np.zeros([0,1])
         data=[]
         t=[]
-     
+
     return data, t, attribs
 
 def getStations():
     """Returns a list of dictionaries with NOAA station ID data"""
-    
+
     xmlfile = 'http://opendap.co-ops.nos.noaa.gov/stations/stationsXML.jsp'
-    doc = minidom.parse(urllib2.urlopen(xmlfile))
+    doc = minidom.parse(urllib.request.urlopen(xmlfile))
     # Load the data into a list of dictionaries
     stations = []
     for node in doc.getElementsByTagName('station'):
         name = node.getAttribute('name')
         ID = node.getAttribute('ID')
         alist = node.getElementsByTagName('lat')
-        lat=alist[0].childNodes[0].nodeValue    
+        lat=alist[0].childNodes[0].nodeValue
         alist = node.getElementsByTagName('long')
         lon=alist[0].childNodes[0].nodeValue
         try:
@@ -265,7 +265,7 @@ def getStations():
         except:
             data = ''
         stations.append([{'name':str(name),'ID':int(ID),'lat':float(lat),'lon':float(lon),'date':str(date)}])
-    
+
     return stations
 
 def queryStations(latlon):
@@ -282,9 +282,9 @@ def queryStations(latlon):
             x.append(a[0]["lon"])
             y.append(a[0]["lat"])
             name.append(a[0]["name"])
-            
+
     return x, y, stationID, name
-    
+
 def getStartEndDates(startt,endt,tformat):
     """
     Create a list of strings with the first day and last day of a month between two dates
@@ -292,7 +292,7 @@ def getStartEndDates(startt,endt,tformat):
     # convert to datetime objects
     t1 = datetime.strptime(startt,tformat)
     t2 = datetime.strptime(endt,tformat)
-        
+
     tnow = t1
     tnow2 = tnow
     starttime=[]
@@ -306,23 +306,23 @@ def getStartEndDates(startt,endt,tformat):
         else:
             tnow2=tnow2.replace(month=mo+1)
         # Get the last day of the month here
-        t3=datetime.fromordinal(tnow2.toordinal()-1) 
+        t3=datetime.fromordinal(tnow2.toordinal()-1)
         starttime.append(tnow.strftime('%Y%m%d'))
         endtime.append(t3.strftime('%Y%m%d'))
-        # Update tnow    
+        # Update tnow
         tnow = tnow2
-    
+
     return starttime, endtime
 
-    
+
 def parseDateOld(tstr):
     """ Parse a date represented by a string to a decimal number.
-    The time/datetime functions do not seem to support the format spat out by 
+    The time/datetime functions do not seem to support the format spat out by
     database
     """
     # convert the string to a list so that it can be modified
     tlst = list(tstr)
-    
+
     day = tstr[4:6]
     hour = tstr[12:14]
     dd = int(day)
@@ -331,44 +331,41 @@ def parseDateOld(tstr):
     if dd < 10:
         #tout.replace(day,"0"+day[1],1)
         tlst[4:6]="0"+day[1]
-    
+
     # replace hours
     if hh < 10:
         tlst[12:14]="0"+hour[1]
-    
+
     # Combine back into a string
     ttmp = "".join(tlst)
 
     # Convert to a time struct format
     t = time.strptime(ttmp.upper(), '%b %d %Y %I:%M%p')
-    
+
     # Convert to a datetime format
     t2=datetime.fromtimestamp(time.mktime(t))
-    
+
     # Return as seconds since 1970,1,1
 #    tout = (t2.toordinal()-datetime(1970,1,1))*86400.0
-    
+
     # Convert to the matlab time format
     tout = datetime2matlabdn(t2)
-    
+
     return tout
-    
+
 def parseDate(tstr):
     tcmps = tstr.split()
     # Convert this to a "nicely" formatted string
     timestr = '%s%02d%04d %s'%(tcmps[0],int(tcmps[1]),int(tcmps[2]),tcmps[3])
-    
+
     # Convert to datetime object
     t = datetime.strptime(timestr, '%b%d%Y %I:%M%p')
-    
+
     # Return as minutes since 1970-01-01
     return MinutesSince(t)[0]
-    
+
 def datetime2matlabdn(dt):
-   ord = dt.toordinal()
-   mdn = dt + timedelta(days = 366)
-   frac = (dt-datetime(dt.year,dt.month,dt.day,0,0,0)).seconds / (24.0 * 60.0 * 60.0)
-   return mdn.toordinal() + frac
-
-   
-
+    ord = dt.toordinal()
+    mdn = dt + timedelta(days = 366)
+    frac = (dt-datetime(dt.year,dt.month,dt.day,0,0,0)).seconds / (24.0 * 60.0 * 60.0)
+    return mdn.toordinal() + frac

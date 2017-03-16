@@ -6,7 +6,7 @@ University of Western Australia
 Dec 2016
 """
 
-import numpy as np 
+import numpy as np
 import xray
 from scipy.interpolate import interp2d, interp1d
 
@@ -23,7 +23,7 @@ def load_cars_temp(carsfile, X, Y, Z, T):
         nx = X.shape[0]
         ny = Y.shape[0]
     except:
-        raise Exception, 'X/Y need to be numpy array objects'
+        raise Exception('X/Y need to be numpy array objects')
 
     assert nx == ny, 'X and Y should be vectors of the same length'
     xlims = slice(np.min(X)-2, np.max(X)+2)
@@ -175,8 +175,8 @@ def load_cars_temp(carsfile, X, Y, Z, T):
 
     # Example from: http://www.marine.csiro.au/~dunn/cars2009/
     #  Evaluate at day-of-year 45 (mid February)
-    #  t = 2pi x 45/366 
-    #  feb = mean + an_cos*cos(t) + an_sin*sin(t) + sa_cos*cos(2*t) + sa_sin*sin(2*t) 
+    #  t = 2pi x 45/366
+    #  feb = mean + an_cos*cos(t) + an_sin*sin(t) + sa_cos*cos(2*t) + sa_sin*sin(2*t)
 
     Tcars = Tmean_iz[...,np.newaxis] + \
         T_Ac_iz[...,np.newaxis]*np.cos(t_osc[np.newaxis,...]) + \
@@ -185,5 +185,3 @@ def load_cars_temp(carsfile, X, Y, Z, T):
         T_SAs_iz[...,np.newaxis]*np.sin(2*t_osc[np.newaxis,...])
 
     return Tcars
-
-

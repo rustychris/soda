@@ -30,9 +30,9 @@ monkey.patch_all()
 # Utility functions
 ####
 def hasdim(nc,dim):
-    return nc.dimensions.has_key(dim)
+    return dim in nc.dimensions
 def hasvar(nc,var):
-    return nc.variables.has_key(var)
+    return var in nc.variables
 def gettime(nc,timename):
     t = nc.variables[timename]
     return num2date(t[:],t.units)
@@ -63,7 +63,7 @@ class GridDAP(object):
         self.__dict__.update(kwargs)
 
         # Open the opendap dataset
-        if isinstance(url,str) or isinstance(url, unicode):
+        if isinstance(url,str) or isinstance(url, str):
             self._nc = Dataset(url)
         elif isinstance(url,Dataset):
             # we're passing Dataset object
@@ -73,8 +73,8 @@ class GridDAP(object):
             self._nc = Dataset(url[0])
             self._ncfiles = url # List of file names
 
-        else:   
-            raise Exception, 'Unknown input url type'
+        else:
+            raise Exception('Unknown input url type')
 
         # Open the grid netcdf (if it exists)
         if not self.gridfile==None:
@@ -122,7 +122,7 @@ class GridDAP(object):
 
         self.nt = self.t2 - self.t1
 
-        print trange
+        print(trange)
 
     def get_indices(self,xrange,yrange,zrange):
         """ Find the domain indices"""
@@ -145,7 +145,7 @@ class GridDAP(object):
                 y2 = self.find_nearest_1d(self.Y,yrange[1])
                 self.y1 = min([y1,y2])
                 self.y2 = max([y1,y2])
-        
+
         elif self.X.ndim==2:
             if xrange == None or yrange == None:
                 self.x1 = 0
@@ -180,9 +180,9 @@ class GridDAP(object):
         Download the actual data
 
         Set xrange/yrange/zrange/trange=None to get all
-        
+
         """
-        
+
         self.get_indices(xrange,yrange,zrange)
         self.get_time_indices(trange)
 
@@ -192,7 +192,7 @@ class GridDAP(object):
         if not self.multifile:
             return self.get_data_singlefile(varname,self._nc,self.t1,self.t2)
         else:
-            return self.get_data_multifile(varname, rawvar=rawvar) 
+            return self.get_data_multifile(varname, rawvar=rawvar)
 
     def get_data_multifile(self,varname, rawvar=None):
         """
@@ -252,16 +252,16 @@ class GridDAP(object):
         # Download time chunks of data
         ###
         p1 = 0
-        for ff in tslice_dict.keys():
+        for ff in list(tslice_dict.keys()):
             nc = Dataset(ff)
             t1,t2 = tslice_dict[ff]
             p2 = p1+t2-t1
-            print '\t Downloading from file:\n%s'%ff
+            print('\t Downloading from file:\n%s'%ff)
             data[p1:p2+1,...] = self.get_data_singlefile(varname,nc,t1,t2+1)
 
             p1=p2+1
             nc.close()
-        
+
         ####
         ## Download data step-by-step (slow)
         ####
@@ -281,8 +281,8 @@ class GridDAP(object):
 
         #nc.close()
         return data
-            
-    def get_data_singlefile(self,varname,nc,t1,t2):  
+
+    def get_data_singlefile(self,varname,nc,t1,t2):
         """
         Download the data from a single file
         """
@@ -294,7 +294,7 @@ class GridDAP(object):
                     [self.y1:self.y2,self.x1:self.x2]
 
             except:
-                print 'Ouch! Server says no... I''ll retry...'
+                print('Ouch! Server says no... I''ll retry...')
                 time.sleep(0.1)
                 data = get_2d(data)
 
@@ -304,14 +304,14 @@ class GridDAP(object):
         def get_3d_step(data,tstart):
             try:
                 # Do step-by-step (slower)
-                print 'Downloading step-by-step...'
+                print('Downloading step-by-step...')
                 for ii,tt in enumerate(range(tstart,t2)):
-                    print tt, t2
+                    print(tt, t2)
                     data[ii,...] = nc.variables[varname]\
                         [tt,self.y1:self.y2,self.x1:self.x2]
 
             except:
-                print 'Ouch! Server says no... I''ll retry...'
+                print('Ouch! Server says no... I''ll retry...')
                 time.sleep(0.1)
                 data = get_3d_step(data,tt)
 
@@ -321,14 +321,14 @@ class GridDAP(object):
         def get_4d_step(data,tstart):
             try:
                 # Do step-by-step (slower)
-                print 'Downloading step-by-step...'
+                print('Downloading step-by-step...')
                 for ii,tt in enumerate(range(tstart,t2)):
-                    print tt, t2
+                    print(tt, t2)
                     data[ii,...] = nc.variables[varname]\
                         [tt,self.z1:self.z2,self.y1:self.y2,self.x1:self.x2]
 
             except:
-                print 'Ouch! Server says no... I''ll retry...'
+                print('Ouch! Server says no... I''ll retry...')
                 time.sleep(0.1)
                 data = get_4d_step(data,tt)
 
@@ -456,12 +456,12 @@ class GetDAP(object):
 
         # For each variable:
         # Get the coordinate variables
-        
+
         # Initiate the griddap class for each variable
         #   (this does most of the work)
         self.init_var_grids()
 
-    def __call__(self,xrange,yrange,trange,zrange=None,outfile=None):    
+    def __call__(self,xrange,yrange,trange,zrange=None,outfile=None):
         """
         Download the data, save if outfile is specified
         """
@@ -475,14 +475,14 @@ class GetDAP(object):
             # Write the data
             if not outfile == None:
                 self.write_var(outfile,vv,data)
-        
+
         return data
 
 
     def load_data(self,varname,xr,yr,zr,tr):
         ncvarname = getattr(self,varname)
         dap = getattr(self,'_%s'%varname)
-        print 'Loading variable: (%s) %s...'%(varname,ncvarname)
+        print('Loading variable: (%s) %s...'%(varname,ncvarname))
 
         return dap.get_data(ncvarname,xr,yr,zr,tr, rawvar=varname)
 
@@ -491,26 +491,26 @@ class GetDAP(object):
         Initialise each variable into an object with name "_name"
         """
         for vv in self.variables:
-            print 'loading grid data for variable: %s...'%getattr(self,vv)
+            print('loading grid data for variable: %s...'%getattr(self,vv))
             attrname = '_%s'%vv
 
             if self.multifile:
                 nc = self.MF.get_filename_only(var=vv)
-                print nc
+                print(nc)
                 self._nc = Dataset(nc)
             else:
                 nc = self._nc
- 
+
             timecoord,xcoord,ycoord,zcoord = \
                 self.get_coord_names(getattr(self,vv))
-               
+
             dap = GridDAP(nc,xcoord=xcoord,ycoord=ycoord,\
                 timecoord=timecoord,zcoord=zcoord,\
                 gridfile=self.gridfile,multifile=self.multifile,\
                 MF=self.MF)
 
             setattr(self,attrname,dap)
- 
+
 
     def check_trange(self,trange):
         if isinstance(trange[0],str):
@@ -520,7 +520,7 @@ class GetDAP(object):
         elif isinstance(trange[0],datetime):
             return trange
         else:
-            raise Exception, 'unknown time format'
+            raise Exception('unknown time format')
 
     def get_coord_names(self,varname):
         """
@@ -546,12 +546,12 @@ class GetDAP(object):
             if ndims==4:
                 timecoord, zcoord, ycoord0 ,xcoord0 = dims
             elif ndims==3:
-                 timecoord, ycoord0 ,xcoord0 = dims
-                 zcoord=None
+                timecoord, ycoord0 ,xcoord0 = dims
+                zcoord=None
             elif ndims==2:
-                 ycoord0 ,xcoord0 = dims
-                 zcoord=None
-                 timecoord=None # Used for writing
+                ycoord0 ,xcoord0 = dims
+                zcoord=None
+                timecoord=None # Used for writing
 
 
         # Do a hackish check to see if x and y are in the right order
@@ -566,18 +566,18 @@ class GetDAP(object):
         if xcoord=='X' or ycoord=='Y':
             xcoord='Longitude'
             ycoord='Latitude'
-            
+
         return timecoord,xcoord,ycoord,zcoord
 
     def write_var(self,outfile,var,data):
 
         # Check if the file is open and/or exists
         if os.path.isfile(outfile):
-            print 'File exists - appending...'
+            print('File exists - appending...')
             self._outnc = Dataset(outfile,'a')
         else:
-            if not self.__dict__.has_key('_outnc'):
-                print '\tOpening %s'%outfile
+            if '_outnc' not in self.__dict__:
+                print('\tOpening %s'%outfile)
                 self._outnc = Dataset(outfile, mode='w', \
                     format='NETCDF4_CLASSIC', data_model='NETCDF4_CLASSIC')
 
@@ -594,7 +594,7 @@ class GetDAP(object):
         # Get the coordinate variables
         timecoord,xcoord,ycoord,zcoord = \
             self.get_coord_names(remotevar)
-     
+
 
         # Write the coordinate variables (will not be overwritten)
         self.create_ncvar_fromvarname(xcoord,dimsizes=dapobj.localX.shape)
@@ -653,7 +653,7 @@ class GetDAP(object):
                 else:
                     t1 = 0
             self.tindex = [t1,t1+tout.shape[0]]
-            print self.tindex
+            print(self.tindex)
 
             # Check to see if we need to write
             if localtime.shape[0]<self.tindex[1]:
@@ -666,7 +666,7 @@ class GetDAP(object):
                 self.create_ncvar_fromvarname(timecoord,dimsizes=(None,))
             else:
                 # Create the time variable manually (necessary for 2D arrays)
-                print 'No time variable - creating one manually...'
+                print('No time variable - creating one manually...')
                 varname='time'
                 if not hasdim(self._outnc,'time'):
                     tdim = self._outnc.createDimension('time', None)
@@ -685,7 +685,7 @@ class GetDAP(object):
             if timecoord is None:
                 timecoord='time'
 
-            print 'tout... ', tout
+            print('tout... ', tout)
             # Write the data (converts to netcdf units)
             t = self._outnc.variables[timecoord]
             self._outnc.variables[timecoord][:] = \
@@ -699,14 +699,14 @@ class GetDAP(object):
         Create a local file with the grid information from the variable
         """
         if os.path.isfile(outfile):
-            print 'File exists - appending...'
+            print('File exists - appending...')
             self._outnc = Dataset(outfile,'a')
         else:
-            if not self.__dict__.has_key('_outnc'):
-                print '\tOpening %s'%outfile
+            if '_outnc' not in self.__dict__:
+                print('\tOpening %s'%outfile)
                 self._outnc = Dataset(outfile,'w')
 
-        print 'Creating local netcdf file with grid data...'
+        print('Creating local netcdf file with grid data...')
 
         # Get the variables to store in the grid file
         timecoord,xcoord,ycoord,zcoord = self.get_coord_names(varname)
@@ -718,19 +718,19 @@ class GetDAP(object):
         # Download the coordinate variable data
         if not zcoord==None:
             self.create_ncvar_fromvarname(zcoord)
-            print 'Downloading Z...'
+            print('Downloading Z...')
             self._outnc.variables[zcoord][:] = self._nc.variables[zcoord][:]
 
         #X
         self.create_ncvar_fromvarname(xcoord)
-        print 'Downloading X...'
+        print('Downloading X...')
         self._outnc.variables[xcoord][:] = self._nc.variables[xcoord][:]
 
         #Y
         self.create_ncvar_fromvarname(ycoord)
-        print 'Downloading Y...'
+        print('Downloading Y...')
         self._outnc.variables[ycoord][:] = self._nc.variables[ycoord][:]
-        
+
 
     def create_ncvar_fromvarname(self,varname,dimsizes=None, create_time=False):
         """
@@ -743,7 +743,7 @@ class GetDAP(object):
         """
 
         if hasvar(self._outnc,varname):
-            print 'Variable exists - exiting.'
+            print('Variable exists - exiting.')
             return
 
         # List the dimensions
@@ -758,7 +758,7 @@ class GetDAP(object):
 
                 self._outnc.createDimension(dim,dimsize)
 
-        print varname
+        print(varname)
         V = self._nc.variables[varname]
         # Create the variable
         dimensions = V.dimensions
@@ -777,48 +777,48 @@ class GetDAP(object):
                 data_model='NETCDF4_CLASSIC', format='NETCDF4_CLASSIC')
         nc.Title = '%s model data'%(self.type)
         nc.url = '%s'%(self.ncurl)
-        
+
         self._outnc=nc
 
 
 class MFncdap(object):
     """
     Multi-file class for opendap netcdf files
-    
-    MFDataset module is not compatible with opendap data 
+
+    MFDataset module is not compatible with opendap data
     """
-    
+
     timevar = 'time'
     tformat = '%Y%m%d.%H%M%S'
 
     # Not used here
     var = None
-    
+
     def __init__(self,ncfilelist,**kwargs):
-        
+
         self.__dict__.update(kwargs)
         self.ncfilelist = ncfilelist
         self.nfiles = len(self.ncfilelist)
-        print 'Retrieving the time information from files...'
-        
+        print('Retrieving the time information from files...')
+
         self._timelookup = {}
         timeall = []
         #self.time = np.zeros((0,))
-        
+
         for f in self.ncfilelist:
-            print f
+            print(f)
             nc = Dataset(f)
             t = nc.variables[self.timevar]
             time = num2date(t[:],t.units).tolist()
             nc.close()
-            
+
             #self.timelookup.update({f:time})
             timeall.append(time)
 
             # Create a dictionary of time and file
             for ii,tt in enumerate(time):
                 tstr = datetime.strftime(tt,self.tformat)
-                if self._timelookup.has_key(tstr):
+                if tstr in self._timelookup:
                     # Overwrite the old key
                     self._timelookup[tstr]=(f,ii)
                 else:
@@ -827,7 +827,7 @@ class MFncdap(object):
         #self.time = np.asarray(self.time)
         timeall = np.array(timeall)
         self.time = np.unique(timeall)
-            
+
     def __call__(self,time, var=None):
         """
         Return the filenames and time index of the closest time
@@ -844,15 +844,15 @@ class MFncdap(object):
         # Order is important
         tslice_dict = collections.OrderedDict()
         for tt, f in zip(tind, fname):
-            if not tslice_dict.has_key(f):
+            if f not in tslice_dict:
                 tslice_dict.update({f:[]})
-            
+
             tslice_dict[f].append(tt)
 
 
-        for f in tslice_dict.keys():
-             vals = tslice_dict[f]
-             tslice_dict[f] = [min(vals), max(vals)]
+        for f in list(tslice_dict.keys()):
+            vals = tslice_dict[f]
+            tslice_dict[f] = [min(vals), max(vals)]
 
         return tind, fname, tslice_dict
 
@@ -863,9 +863,9 @@ class MFncdap(object):
         t0=[]
         t1=[]
         for ii in range(self.nfiles):
-             tind, ncfiles = self.__call__(self.time[0], var=var)
-             t0.append(tind[0])
-             t1.append(tind[-1])
+            tind, ncfiles = self.__call__(self.time[0], var=var)
+            t0.append(tind[0])
+            t1.append(tind[-1])
 
         return t0, t1
 
@@ -874,5 +874,3 @@ class MFncdap(object):
         Returns the first file only
         """
         return self.ncfilelist[0]
-
- 

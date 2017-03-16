@@ -3,12 +3,12 @@ Tools for downloading specfific ocean/atmosphere/climate
 datasets from an opendap server
 """
 
-from mythredds import GetDAP, Dataset, MFncdap
+from .mythredds import GetDAP, Dataset, MFncdap
 
 from datetime import datetime,timedelta
 import pandas as pd
 import numpy as np
-import urllib2  
+import urllib.request, urllib.error, urllib.parse
 from xml.dom import minidom
 from collections import OrderedDict
 
@@ -105,7 +105,7 @@ metoceandict = {\
 } # End of dictionary
 
 #############################
-# Dataset specific classes 
+# Dataset specific classes
 #############################
 
 # These are for doing thigs like retrieving file names,
@@ -120,7 +120,7 @@ class GFSFiles:
     #dt = 3 # time interval between files in hours
     #baseurl =\
         #'http://nomads.ncdc.noaa.gov/thredds/dodsC/gfs-%03d/%s/%s/gfs_%d_%s_0000_%03d.grb2'
-    dt = 24 
+    dt = 24
     baseurl =\
         'http://nomads.ncep.noaa.gov:9090/dods/gfs_0p50/gfs%s/gfs_0p50_00z'
 
@@ -139,7 +139,7 @@ class GFSFiles:
         while t1 <= trange[1]:
             t1+=dt
             time.append(t1)
-            print t1
+            print(t1)
 
         self.tdsdict = tdsdict
 
@@ -178,19 +178,19 @@ class GFSFiles:
 
         # Check if the url exists
         if not basetime == self.basetime:
-            print 'Checking if url exists...\n\t%s'%url
+            print('Checking if url exists...\n\t%s'%url)
             try:
                 # Update to a new data
                 #f = urllib2.urlopen('%s.html'%url)
                 nc = Dataset(url)
                 self.basetime = basetime
-                print 'yes'
+                print('yes')
                 nc.close()
                 return url
             except:
-                print 'File does not exist - we are in the forecast\
-                    stage...(%s)'%(yymmdd)
-                # Generate a string from the old basetime 
+                print('File does not exist - we are in the forecast\
+                    stage...(%s)'%(yymmdd))
+                # Generate a string from the old basetime
                 yymmdd = datetime.strftime(self.basetime,'%Y%m%d')
                 yyyymm = datetime.strftime(self.basetime,'%Y%m')
                 hours = (time-self.basetime).total_seconds()/3600
@@ -202,11 +202,11 @@ class GFSFiles:
         Returns the first file only
         """
         return  self.ncfilelist[0]
-        
+
 
 class CFSR_1hr(object):
     """
-    Class for returning the list of CFSR files for a given time 
+    Class for returning the list of CFSR files for a given time
     range and variable list
     """
 
@@ -256,7 +256,7 @@ class CFSR_1hr(object):
         fnamenew = [fname.replace(fstr, fstrnew) for fname in fnames]
 
         # Replace the keys in the dictionary
-        for ff in tslice.keys():
+        for ff in list(tslice.keys()):
             new_key = ff.replace(fstr, fstrnew)
             tslice[new_key] = tslice.pop(ff)
 
@@ -280,7 +280,7 @@ class CFSR_1hr(object):
             fstr = self.tdsdict['%s_file'%'uwind']
             fstrnew = self.tdsdict['%s_file'%var]
             fnamenew = fname.replace(fstr, fstrnew)
-            
+
         else:
             fnamenew = fname
 
@@ -290,7 +290,7 @@ class GetDAP_BRAN(GetDAP):
     """
     Special class for dealing with Bran data
     """
-    
+
     def __init__(self,**kwargs):
         GetDAP.__init__(self, **kwargs)
 
@@ -305,7 +305,7 @@ class AVHRR52(object):
     """
     NOAA Advanced Very High Resolution Radiometer data
     """
-    
+
     def __init__(self, trange, useday=False):
 
         baseurl = 'http://data.nodc.noaa.gov/thredds/dodsC/'
@@ -326,7 +326,7 @@ class AVHRR52(object):
         # Generate a list of all files in that year range
         urllist = []
         for year in years:
-            print 'Getting urls for year %d'%year
+            print('Getting urls for year %d'%year)
             url = self.get_url_year(year, useday)
             for u in url:
                 urllist.append('%s%s'%(baseurl, u))
@@ -334,7 +334,7 @@ class AVHRR52(object):
         # Create a lookup dictionary for all time steps
         self._timelookup = OrderedDict()
 
-        print 'Generating time lookup table...'
+        print('Generating time lookup table...')
         badidx = np.ones((time.shape[0]), dtype=np.bool)
         for ii, tt in enumerate(time):
             tday = '_%d%03d_'%(tt.year,tt.dayofyear)
@@ -348,8 +348,8 @@ class AVHRR52(object):
 
             # Check that each day exists
 
-            if not self._timelookup.has_key(tstr):
-                print 'Warning could not find file for: %s'%tstr
+            if tstr not in self._timelookup:
+                print('Warning could not find file for: %s'%tstr)
                 badidx[ii] = False
 
 
@@ -358,7 +358,7 @@ class AVHRR52(object):
 
         # Use the first file as the lookup url
         self.ncurl = []
-        for nc in self._timelookup.keys():
+        for nc in list(self._timelookup.keys()):
             self.ncurl.append(self._timelookup[nc])
 
     def __call__(self, localtime, var=None):
@@ -377,7 +377,7 @@ class AVHRR52(object):
 
     def get_filename_only(self, var=None):
         return self.ncurl[0]
-        
+
     def get_url_year(self, year, useday):
         """
         Finds the url name for a given year
@@ -388,9 +388,9 @@ class AVHRR52(object):
           'http://data.nodc.noaa.gov/thredds/catalog/pathfinder/Version5.2/%s/catalog.xml'%year
 
         if year < 1981 or year > yearmax:
-            raise Exception, 'year outside of %d to %d'%(1981, yearmax)
+            raise Exception('year outside of %d to %d'%(1981, yearmax))
 
-        doc = minidom.parse(urllib2.urlopen(xmlfile))
+        doc = minidom.parse(urllib.request.urlopen(xmlfile))
 
         urls = []
         for node in doc.getElementsByTagName('dataset'):
@@ -424,7 +424,7 @@ def get_metocean_dap(xrange,yrange,zrange,trange,outfile,\
     """
     oceandict=metoceandict[name]
 
-    for key in kwargs.keys():
+    for key in list(kwargs.keys()):
         oceandict[key]=kwargs[key]
 
     # Construct the dap class
@@ -432,7 +432,7 @@ def get_metocean_dap(xrange,yrange,zrange,trange,outfile,\
     # Call the object
     TDS(xrange,yrange,trange,zrange=zrange,outfile=outfile)
 
-    print 'Done.'
+    print('Done.')
     return TDS
 
 
@@ -449,10 +449,10 @@ def get_metocean_local(ncfile,varname,name='HYCOM',TDS=None,\
     """
     oceandict=metoceandict[name]
 
-    # 
+    #
     ncvar = oceandict[varname]
     oceandict['ncurl']=ncfile
-    if oceandict.has_key('multifile'):
+    if 'multifile' in oceandict:
         oceandict['multifile']=False
 
     # Construct the dap class
@@ -485,7 +485,7 @@ def get_gfs_tds(xrange,yrange,zrange,trange,outfile):
 
     # Create the thredds object
     TDS = GetDAP(MF=gfs, **gfsdict)
-    
+
     # Call the object
     TDS(xrange,yrange,trange,zrange=zrange,outfile=outfile)
 
@@ -538,5 +538,3 @@ def get_avhrr52(xrange, yrange, trange, outfile):
     TDS = GetDAP(variables=vars, MF = MF, **mydict)
     # Call the object
     TDS(xrange, yrange, trange, outfile=outfile)
- 
-

@@ -60,47 +60,47 @@ class ModVsObs(object):
         #elif isinstance(tmod[0], np.datetime64):
         #    time0 = max(tmod[0],tobs[0])
         #    time1 = min(tmod[-1],tobs[-1])
-	time0 = max(tmod[0],tobs[0])
-	time1 = min(tmod[-1],tobs[-1])
+        time0 = max(tmod[0],tobs[0])
+        time1 = min(tmod[-1],tobs[-1])
 
         if time1 < time0:
-            print 'Error - the two datasets have no overlapping period.'
+            print('Error - the two datasets have no overlapping period.')
             return None
-        
-	if not (tmod.shape[0] == tobs.shape[0]) and\
-		not (tmod[0] == tobs[0]) and not (tmod[-1] == tobs[-1]) :
-	    # Clip both the model and observation to this daterange
-	    t0m = othertime.findNearest(time0,tmod)
-	    t1m = othertime.findNearest(time1,tmod)
-	    TSmod = timeseries(tmod[t0m:t1m],ymod[...,t0m:t1m], **kwargs)
 
-	    t0 = othertime.findNearest(time0,tobs)
-	    t1 = othertime.findNearest(time1,tobs)
-	    TSobs = timeseries(tobs[t0:t1],yobs[...,t0:t1], **kwargs)
+        if not (tmod.shape[0] == tobs.shape[0]) and\
+                not (tmod[0] == tobs[0]) and not (tmod[-1] == tobs[-1]) :
+            # Clip both the model and observation to this daterange
+            t0m = othertime.findNearest(time0,tmod)
+            t1m = othertime.findNearest(time1,tmod)
+            TSmod = timeseries(tmod[t0m:t1m],ymod[...,t0m:t1m], **kwargs)
 
-	    # Interpolate the observed value onto the model step
-	    #tobs_i, yobs_i = TSobs.interp(tmod[t0:t1],axis=0)
-	    #self.TSobs = timeseries(tobs_i, yobs_i)
+            t0 = othertime.findNearest(time0,tobs)
+            t1 = othertime.findNearest(time1,tobs)
+            TSobs = timeseries(tobs[t0:t1],yobs[...,t0:t1], **kwargs)
 
-	    ## Don't interpolate if datasets are the same
-	    #if np.all(tobs==tmod):
-	    #   self.TSobs = TSobs
-	    #   self.TSmod = TSmod
-	    # Interpolate the modeled value onto the observation time step
-	    if interpmodel:
-		tmod_i, ymod_i = TSmod.interp(tobs[t0:t1],axis=-1,method='nearestmask')
-		#self.TSmod = timeseries(tmod_i,ymod_i, **kwargs)
-		self.TSmod = timeseries(tobs[t0:t1], ymod_i, **kwargs)
-		self.TSobs = TSobs
-	    else:
-		tobs_i, yobs_i = TSobs.interp(tmod[t0m:t1m],axis=-1,method='nearestmask')
-		#self.TSobs = timeseries(tobs_i,yobs_i, **kwargs)
-		self.TSobs = timeseries(tmod[t0m:t1m], yobs_i, **kwargs)
-		self.TSmod = TSmod
-	else:
+            # Interpolate the observed value onto the model step
+            #tobs_i, yobs_i = TSobs.interp(tmod[t0:t1],axis=0)
+            #self.TSobs = timeseries(tobs_i, yobs_i)
 
-	    self.TSmod = timeseries(tmod, ymod, **kwargs)
-	    self.TSobs = timeseries(tobs, yobs, **kwargs)
+            ## Don't interpolate if datasets are the same
+            #if np.all(tobs==tmod):
+            #   self.TSobs = TSobs
+            #   self.TSmod = TSmod
+            # Interpolate the modeled value onto the observation time step
+            if interpmodel:
+                tmod_i, ymod_i = TSmod.interp(tobs[t0:t1],axis=-1,method='nearestmask')
+                #self.TSmod = timeseries(tmod_i,ymod_i, **kwargs)
+                self.TSmod = timeseries(tobs[t0:t1], ymod_i, **kwargs)
+                self.TSobs = TSobs
+            else:
+                tobs_i, yobs_i = TSobs.interp(tmod[t0m:t1m],axis=-1,method='nearestmask')
+                #self.TSobs = timeseries(tobs_i,yobs_i, **kwargs)
+                self.TSobs = timeseries(tmod[t0m:t1m], yobs_i, **kwargs)
+                self.TSmod = TSmod
+        else:
+
+            self.TSmod = timeseries(tmod, ymod, **kwargs)
+            self.TSobs = timeseries(tobs, yobs, **kwargs)
 
 
 
@@ -117,10 +117,10 @@ class ModVsObs(object):
 
         self.N = self.TSmod.t.shape[0]
         if self.N==0:
-            print 'Error - zero model points detected'
+            print('Error - zero model points detected')
             return None
 
-        # Compute the error 
+        # Compute the error
         self.error = self.TSmod.y - self.TSobs.y
 
         self.calcStats()
@@ -140,7 +140,7 @@ class ModVsObs(object):
 
         Inputs:
                 t1, t2 : date string
-                fmt : time format [default: '%Y-%m-%d'] 
+                fmt : time format [default: '%Y-%m-%d']
         Returns:
                 a NEW ModVsObs object
         """
@@ -192,7 +192,7 @@ class ModVsObs(object):
             leg.get_frame().set_alpha(0.5)
 
         return h1, h2, ax
-        
+
     def stackplot(self,colormod='r',colorobs='b',scale=None,ax=None,fig=None,labels=True,**kwargs):
         """
         Stack plot of several time series
@@ -201,10 +201,10 @@ class ModVsObs(object):
             labels = ['z = %1.1f m'%z for z in self.Z.tolist()]
         else:
             labels=None
-        
+
         fig,ax,ll = stackplot(self.TSobs.t,self.TSobs.y,ax=ax,fig=fig,\
             scale=scale,units=self.units,labels=labels,color=colorobs,*kwargs)
-            
+
         fig,ax,ll = stackplot(self.TSmod.t,self.TSmod.y,ax=ax,fig=fig,\
             scale=scale,units=self.units,labels=labels,color=colormod,*kwargs)
 
@@ -305,7 +305,7 @@ class ModVsObs(object):
 
         # RMSE
         self.rmse = rms(self.TSobs.y-self.TSmod.y,axis=-1)
-        
+
         # bian
         self.bias = np.mean(self.TSmod.y - self.TSobs.y, axis=-1)
 
@@ -315,13 +315,13 @@ class ModVsObs(object):
 
         # Correlation coefficient
         self.cc = 1.0/float(self.N) * ( (self.TSobs.y.T-self.meanObs).T * \
-            (self.TSmod.y.T - self.meanMod).T ).sum(axis=-1) / (self.stdObs * self.stdMod) 
+            (self.TSmod.y.T - self.meanMod).T ).sum(axis=-1) / (self.stdObs * self.stdMod)
 
     def printStats(self,f=None,header=True):
         """
         Prints the statistics to a markdown language style table
         """
-        if not self.__dict__.has_key('meanMod'):
+        if 'meanMod' not in self.__dict__:
             self.calcStats()
 
         outstr=''
@@ -329,7 +329,7 @@ class ModVsObs(object):
         #if header:
         #    outstr += "-------------------------------------------------------------- \n"
         #    outstr += "           Mean Model Mean Obs. Std. Mod. Std Obs RMSE   CC    skill \n"
-        #    
+        #
         #    outstr += "---------- ---------- --------- --------- ------- ------ ----- ------ \n"
 
         #outstr += " %s [%s]  %6.3f  %6.3f  %6.3f  %6.3f  %6.3f  %6.3f  %6.3f  \n"%\
@@ -341,7 +341,7 @@ class ModVsObs(object):
 
         if header:
             outstr += "|      | Mean Model | Mean Obs. | Std. Mod. | Std. Obs. | RMSE |   CC   | Skill |\n"
-            
+
             outstr += "|------| ---------- | --------- | --------- | ------- | --- | ----- | ------| \n"
 
         outstr += "| %s [%s] | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | %6.3f | \n"%\
@@ -349,7 +349,7 @@ class ModVsObs(object):
             self.rmse,self.cc,self.skill)
 
         if f == None:
-            print outstr
+            print(outstr)
         else:
             f.write(outstr)
 
@@ -357,7 +357,7 @@ class ModVsObs(object):
         """
         Prints the statistics to a markdown language style table
         """
-        if not self.__dict__.has_key('meanMod'):
+        if 'meanMod' not in self.__dict__:
             self.calcStats()
 
         outstr=''
@@ -365,7 +365,7 @@ class ModVsObs(object):
 
         if header:
             outstr += "| Station | Std. Mod. | Std. Obs. | Bias | RMSE |   CC   | Skill |\n"
-            
+
             outstr += "|---------| --------- | --------- | ------- | --- | ----- | ------| \n"
 
         if stationstr is None:
@@ -376,7 +376,7 @@ class ModVsObs(object):
             self.rmse,self.cc,self.skill)
 
         if f == None:
-            print outstr
+            print(outstr)
         else:
             f.write(outstr)
 
@@ -390,7 +390,7 @@ class ModVsObs(object):
 
         if header:
             outstr += "| Depth | Mean Model | Mean Obs. | Std. Mod. | Std Obs | RMSE |   CC   | skill |\n"
-            
+
             outstr += "|------| ---------- | --------- | --------- | ------- | --- | ----- | ------| \n"
 
         for ii,zz in enumerate(self.Z.tolist()):
@@ -400,7 +400,7 @@ class ModVsObs(object):
                 self.stdObs[ii], self.rmse[ii],self.cc[ii],self.skill[ii])
 
         if f == None:
-            print outstr
+            print(outstr)
         else:
             f.write(outstr)
 
@@ -420,7 +420,7 @@ class ModVsObs(object):
         xmean = self.TSmod.y.mean(axis=axis)
         x = self.TSmod.y - xmean
 
-        k = range(1,M)
+        k = list(range(1,M))
         tau = np.asarray(k,dtype=np.float)*self.TSobs.dt
 
         Cxy = [1./(N-kk) * np.sum(y[...,0:-kk]*x[...,kk::],axis=axis) for kk in k ]
@@ -429,28 +429,28 @@ class ModVsObs(object):
             return Cxy/(y.std()*x.std()), tau
         else:
             return Cxy ,tau
- 
+
     def csd(self, plot=True,nbandavg=1,**kwargs):
         """
         Cross spectral density
-        
+
         nbandavg = Number of fft bins to average
         """
-        
+
         if self.isequal==False and self.VERBOSE:
-            print 'Warning - time series is unequally spaced consider using lomb-scargle fft'
-        
+            print('Warning - time series is unequally spaced consider using lomb-scargle fft')
+
 
         NFFT = int(2**(np.floor(np.log2(self.ny/nbandavg)))) # Nearest power of 2 to length of data
-            
+
         Pyy,frq = mlab.csd(self.TSobs.y-self.TSobs.y.mean(),Fs=2*np.pi/self.dt,NFFT=NFFT,window=mlab.window_hanning,scale_by_freq=True)
-        
+
         if plot:
             plt.loglog(frq,Pyy,**kwargs)
             plt.xlabel('Freq. [$cycles s^{-1}$]')
             plt.ylabel('PSD')
             plt.grid(b=1)
-        
+
         return Pyy, frq
 
     ###############
@@ -473,7 +473,7 @@ class ModVsObs(object):
                 varobs:OBS,\
                 varmod:MOD,\
             }, attrs=attrs)
-                
+
     def to_netcdf(self, ncfile, ncgroup=None, mode='w', attrs={}):
         """
         Save the ModVsObs object to a netcdf-4 file
@@ -490,18 +490,18 @@ class ModVsObsUV(ModVsObs):
     """
     Special validation class for velocity data
     """
-    
+
     def __init__(self, tmod, uv_mod, tobs, uv_obs, **kwargs):
         """
         Pass complex variables (u+iv) instead of real
         """
-        
+
         # Make sure the arrays are complex
         assert uv_mod.dtype == np.dtype('complex128')
         assert uv_obs.dtype == np.dtype('complex128')
-        
+
         ModVsObs.__init__(self, tmod, uv_mod, tobs, uv_obs, **kwargs)
-        
+
         u_hat_mod = uv_mod
         u_hat_obs = uv_obs
 
@@ -510,12 +510,12 @@ class ModVsObsUV(ModVsObs):
 
         self.theta_mod = np.angle(u_hat_mod)
         self.theta_obs = np.angle(u_hat_obs)
-    
+
     def plot_speeddirn(self, speedmax=1.5,\
         legend=True, loc='upper right', modcolor='r', obscolor='b', **kwargs):
-        
+
         time = uc.TSmod.t
-        
+
         ax1 = plt.subplot(211)
         plt.plot(time, speed_obs, color='b', linewidth=0.25)
         plt.plot(time, speed_mod, color='r', linewidth=0.25)
@@ -532,22 +532,22 @@ class ModVsObsUV(ModVsObs):
                 markersize=0.5, marker='.',**kwargs)
         plt.plot(time, theta_mod*180./np.pi, color=modcolor,\
                 markersize=0.5, marker='.',**kwargs)
-        
+
         ax.set_yticks([-180,-90.,0,90, 180])
         ax.set_yticklabels(['W','S','E','N','W'])
         ax.set_ylim(-180,180)
-        
+
         plt.xticks(rotation=17)
-        
+
         return ax1, ax
-    
+
     def plot_pdf_polar(self, speedmax=1.0, cmap='RdYlBu_r'):
         """
         Polar plot of speed-direction joint frequency distribution
         """
         # Create a 2d histogram of speed direction
         abins = np.linspace(-np.pi, np.pi, 90.0)      # 0 to 360 in steps of 360/N.
-        sbins = np.linspace(0.0, speedmax, 25) 
+        sbins = np.linspace(0.0, speedmax, 25)
 
         Hmod, xedges, yedges = np.histogram2d(self.theta_mod, self.speed_mod, bins=(abins,sbins), normed=True)
         Hobs, xedges, yedges = np.histogram2d(self.theta_obs, self.speed_obs, bins=(abins,sbins), normed=True)
@@ -585,7 +585,7 @@ class ModVsObsUV(ModVsObs):
         axcb.set_title('[% frequency]')
 
         plt.tight_layout()
-        
+
         return fig, ax1, ax2, axcb
 
 
@@ -600,7 +600,7 @@ def load_netcdf(ncfile, group):
     ds = xray.open_dataset(ncfile, group=group)
 
     # work out the varname
-    varnames = ds.data_vars.keys()
+    varnames = list(ds.data_vars.keys())
 
     for vv in varnames:
         if 'mod' in vv:
@@ -616,15 +616,14 @@ def load_netcdf(ncfile, group):
     # Convert to a ModVsObs object
     # Put the data into a ModVsObs object (model first then observed)
     return ModVsObs(\
-    	    TSmod.index.to_pydatetime(),\
-	    #TSmod.index.values,\
+            TSmod.index.to_pydatetime(),\
+            #TSmod.index.values,\
             TSmod.values,\
             TSobs.index.to_pydatetime(),\
-	    #TSobs.index.values,\
+            #TSobs.index.values,\
             TSobs.values,\
             varname=varname,\
             long_name=attrs['long_name'], \
             units=attrs['units'], \
             stationid=group,\
         )
- 

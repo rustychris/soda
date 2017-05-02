@@ -59,5 +59,3 @@ class MyLine(LineString):
         pts = np.linspace(0,1,npoints)
         return [self.interpolate(pts[ii],normalized=True) for ii in\
             range(npoints)]
-
-

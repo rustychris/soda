@@ -30,7 +30,7 @@ class RegGrid(object):
         shp = self.X.shape
         self.ny = shp[0]
         self.nx = shp[1]
-	
+
     def returnij(self,x,y):
         """
         Returns the i,j (cols,rows) of the points in i,j
@@ -74,7 +74,7 @@ class RegGrid(object):
         i,j = self.returnij(x,y)
         ind = np.isfinite(i)
 
-        # Build two sparse matrices - one for the data and one to count 
+        # Build two sparse matrices - one for the data and one to count
         # the number of entries
         ctr = np.ones(z.shape)
 
@@ -84,5 +84,3 @@ class RegGrid(object):
         data = data/count
 
         return np.array(data.todense())
-
-

@@ -10,20 +10,20 @@ Jan 2017
 import numpy as np
 
 from datetime import datetime
-import othertime
+from . import othertime
 
 import pdb
 
 def harmonic_fit(dtime, X, frq, mask=None, axis=0, phsbase=None):
     """
-    Least-squares harmonic fit on an array, X, with frequencies, frq. 
-    
+    Least-squares harmonic fit on an array, X, with frequencies, frq.
+
     X - vector [Nt] or array [Nt, (size)]
     dtime - datetime-like vector [Nt]
     frq - vector [Ncon]
     mask - array [(size non-time X)]
     phsbase - phase offset
-    
+
     where, dimension with Nt should correspond to axis = axis.
     """
 
@@ -31,27 +31,27 @@ def harmonic_fit(dtime, X, frq, mask=None, axis=0, phsbase=None):
     # Convert the dtime to seconds since
     t = othertime.SecondsSince(dtime, basetime=phsbase)
     #t = np.asarray(t)
-    
+
     # Reshape the array sizes
     X = X.swapaxes(0, axis)
     sz = X.shape
     lenX = int(np.prod(sz[1:]))
-    
+
     if not len(t) == sz[0]:
         raise 'length of t (%d) must equal dimension of X (%s)'%(len(t),sz[0])
-    
+
     X = np.reshape(X,(sz[0],lenX))
-    
+
     if not mask is None and np.any(mask):
-         mask.swapaxes(0, axis)
+        mask.swapaxes(0, axis)
     #    mask = np.reshape(mask,(sz[0]*lenX,))
     #    X = X.ravel()
     #else:
     #    mask = False
-    
+
     frq = np.array(frq)
     Nfrq = frq.shape[0]
-    
+
     def buildA(t,frq):
         """
         Construct matrix A
@@ -63,35 +63,35 @@ def harmonic_fit(dtime, X, frq, mask=None, axis=0, phsbase=None):
         for ff in range(0,nf):
             A[:,ff*2+1]=np.cos(frq[ff]*t)
             A[:,ff*2+2]=np.sin(frq[ff]*t)
-            
+
         return A
-    
-    def lstsqnumpy(A,y):    
-        """    
+
+    def lstsqnumpy(A,y):
+        """
         Solve the least square problem
-        
+
         Return:
-            the complex amplitude 
+            the complex amplitude
             the mean
         """
         N=A.shape[1]
         b = np.linalg.lstsq(A,y)
         A = b[0][1::2]
         B = b[0][2::2]
-        
+
         return A+1j*B, b[0][0::N]
-    
+
     def phsamp(C):
         return np.abs(C), np.angle(C)
-        
-   
+
+
     # Non-vectorized method (~20x slower)
     # Use this on a masked array
     if np.any(mask):
         Amp = np.zeros((Nfrq,lenX))
         Phs = np.zeros((Nfrq,lenX))
         C0 = np.zeros((lenX,))
-        for ii in range(0,lenX):    
+        for ii in range(0,lenX):
             idx = mask[ii,:]==False
             A = buildA(t[idx],frq)
             C, C0[ii] = lstsqnumpy(A,X[idx,ii])
@@ -115,46 +115,46 @@ def harmonic_fit(dtime, X, frq, mask=None, axis=0, phsbase=None):
     #    Phs = np.mod(Phs+phsoff,2*np.pi)
     #    pdb.set_trace()
     # !!
-    
-            
-    
+
+
+
     # reshape the array
     Amp = np.reshape(Amp,(Nfrq,)+sz[1:])
     Phs = np.reshape(Phs,(Nfrq,)+sz[1:])
     C0 = np.reshape(C0,sz[1:])
-    
+
     # Output back along the original axis
     # Amplitude, phase, mean
     return Amp.swapaxes(axis,0), Phs.swapaxes(axis,0), C0#C0.swapaxes(axis,0)
-    
+
 def phase_offset(frq,start,base):
-        """
-        Compute a phase offset for a given fruequency
-        """
-        
-        if isinstance(start, datetime):
-            dx = start - base
-            dx = dx.total_seconds()
-        elif isinstance(start, np.datetime64):
-            dx = (start - base)/np.timedelta64(1,'s')
-        else:
-            dx = start - base
-        
-        return np.mod(dx*np.array(frq),2*np.pi)
+    """
+    Compute a phase offset for a given fruequency
+    """
+
+    if isinstance(start, datetime):
+        dx = start - base
+        dx = dx.total_seconds()
+    elif isinstance(start, np.datetime64):
+        dx = (start - base)/np.timedelta64(1,'s')
+    else:
+        dx = start - base
+
+    return np.mod(dx*np.array(frq),2*np.pi)
 
 def phase_offset_old(frq,start,base):
-        """
-        Compute a phase offset for a given fruequency
-        """
-        
-        if type(start)==datetime:
-            dx = start - base
-            dx = dx.total_seconds()
-        else:
-            dx = start -base
-        
-        return np.mod(dx*np.array(frq),2*np.pi)
- 
+    """
+    Compute a phase offset for a given fruequency
+    """
+
+    if type(start)==datetime:
+        dx = start - base
+        dx = dx.total_seconds()
+    else:
+        dx = start -base
+
+    return np.mod(dx*np.array(frq),2*np.pi)
+
 def harmonic_signal(time, amp, phs, cmean, omega, phsbase=None, axis=-1):
     """
     Reconstruct a harmonic signal for any size array
@@ -170,7 +170,7 @@ def harmonic_signal(time, amp, phs, cmean, omega, phsbase=None, axis=-1):
         h=np.ones((nt,))*cmean[np.newaxis,...]
 
     #nx = np.prod(sz)
-    
+
     # Rebuild the time series
     #tsec=TS_harm.tsec - TS_harm.tsec[0]
     if phsbase is None:
@@ -185,7 +185,7 @@ def harmonic_signal(time, amp, phs, cmean, omega, phsbase=None, axis=-1):
         else:
             h[:] += amp[nn] *\
                 np.cos(om*tsec[:] - phs[nn])
-            
+
     return h
 
 def phsamp2complex(phs,amp):
@@ -199,29 +199,29 @@ def complex2phsamp(C):
     Convert complex amplitude to phase and amplitude
     """
     return np.angle(C), np.abs(C)
- 
+
 
 #########
 # List of tidal frequencies
 def getTideFreq(Fin=None):
     """
     Return a vector of frequency [rad s-1] of common tidal constituents
-    
+
     """
     twopi= 2*np.pi
-#    tidedict = {'M2':twopi/(12.42*3600.0), 
-#                'S2':twopi/(12.00*3600.0), 
-#                'N2':twopi/(12.66*3600.0),  
-#                'K2':twopi/(11.97*3600.0), 
-#                'K1':twopi/(23.93*3600.0), 
-#                'O1':twopi/(25.85*3600.0), 
-#                'P1':twopi/(24.07*3600.0), 
-#                'Q1':twopi/(26.87*3600.0), 
-#                'MF':twopi/(327.90*3600.0), 
+#    tidedict = {'M2':twopi/(12.42*3600.0),
+#                'S2':twopi/(12.00*3600.0),
+#                'N2':twopi/(12.66*3600.0),
+#                'K2':twopi/(11.97*3600.0),
+#                'K1':twopi/(23.93*3600.0),
+#                'O1':twopi/(25.85*3600.0),
+#                'P1':twopi/(24.07*3600.0),
+#                'Q1':twopi/(26.87*3600.0),
+#                'MF':twopi/(327.90*3600.0),
 #                'MM':twopi/(661.30*3600.0),
 #                'M4':twopi/(6.21*3600.0)
 #                }
-                
+
     tidedict = {
     'J1':                           15.5854433,
     'K1':                           15.0410686,
@@ -405,23 +405,21 @@ def getTideFreq(Fin=None):
     '18y':                          360/(18.61*365.25*24), # 18.6 year tide
     '4y':                           360/(4.4*365.25*24), # 4.4 year tide
     }
-    
-    # Set default constituents    
+
+    # Set default constituents
     if Fin is None:
         #Fin=tidedict.keys()
         Fin = ['M2','S2','N2','K2','K1','O1','P1','Q1','M4']
     elif Fin=='all':
-        Fin=tidedict.keys()
-        
+        Fin=list(tidedict.keys())
+
     frq = []
     Fout = Fin[:]
     for f in Fin:
-        if tidedict.has_key(f):
+        if f in tidedict:
             frq.append(twopi/(360.0/tidedict[f]*3600.0))
         else:
             'Warning: could not find constituent name: %s'%f
             Fout.remove(f)
-        
-    return frq, Fout
 
- 
+    return frq, Fout

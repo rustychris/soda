@@ -20,7 +20,7 @@ def accum1d(xin, yin, xout, method='mean'):
     ---
         yout: vector with average values
     """
-    
+
     # Find the index of each input value in the output array
     idx = np.searchsorted(xout, xin)
 
@@ -54,13 +54,13 @@ def accum1d(xin, yin, xout, method='mean'):
     yout[0:iout] = tmp
 
     return yout
- 
+
 def depthint(y, z, ztop=None, zbed=None, cumulative=False, axis=0):
     """
     Integrate the variable "y" along its first dimension
 
     Inputs (optional):
-        
+
         ztop : (scalar) set to top of water column if different from z[-1]
         zbed : (scalar) set to bottom of water column if different from z[0]
     """
@@ -124,13 +124,13 @@ def grad_z(y, z, axis=0):
     assert z.shape == (Nz,) or z.shape == y.shape
 
     dy_dz = np.zeros_like(y)
-    
+
     # Second-order accurate for mid-points
     ymid = 0.5*(y[1:,...]+y[0:-1,...])
 
     zmid = 0.5*(z[1:,...]+z[0:-1,...])
 
-    dzmid  = zmid[1:,...] - zmid[0:-1,...] 
+    dzmid  = zmid[1:,...] - zmid[0:-1,...]
 
     dy_dz[1:-1, ...] = (ymid[1:,...] - ymid[0:-1,...])/\
             dzmid[:,...]
@@ -140,4 +140,3 @@ def grad_z(y, z, axis=0):
     dy_dz[-1,...] = (y[-1,...] - y[-2,...])/dzmid[-1,...]
 
     return dy_dz.swapaxes(axis, 0)
-

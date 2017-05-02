@@ -47,7 +47,7 @@ def parse(tstr):
     return tout
     
 def datetime2matlabdn(dt):
-   ord = dt.toordinal()
-   mdn = dt + timedelta(days = 366)
-   frac = (dt-datetime(dt.year,dt.month,dt.day,0,0,0)).seconds / (24.0 * 60.0 * 60.0)
-   return mdn.toordinal() + frac
+    ord = dt.toordinal()
+    mdn = dt + timedelta(days = 366)
+    frac = (dt-datetime(dt.year,dt.month,dt.day,0,0,0)).seconds / (24.0 * 60.0 * 60.0)
+    return mdn.toordinal() + frac

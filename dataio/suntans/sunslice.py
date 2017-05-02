@@ -17,8 +17,8 @@ from shapely.geometry import LineString, Point
 from soda.dataio.ugrid.hybridgrid import Line
 from soda.dataio.ugrid.hybridgrid import Point as GPoint
 from soda.dataio.ugrid.gridsearch import GridSearch
-from sunpy import Spatial
-from sunpy import unsurf
+from .sunpy import Spatial
+from .sunpy import unsurf
 
 
 import pdb
@@ -28,11 +28,11 @@ class Slice(Spatial):
     """
     Suntans vertical slice class
     """
-    
+
     def __init__(self,ncfile,xpt=None,ypt=None,Npt=100):
-        
+
         Spatial.__init__(self,ncfile,klayer=[-99])
-        
+
         # Calculate the horizontal coordinates of the slice
         self.Npt = Npt
         if xpt == None or ypt == None:
@@ -41,10 +41,10 @@ class Slice(Spatial):
             self.xpt=xpt
             self.ypt=ypt
             self._getSliceCoords()
-            
+
         # Initialise the slice interpolation object
         self._initInterp()
-        
+
     def __call__(self,variable,tstep,method='nearest'):
         """
         Load the data and interpolate on the slice
@@ -55,30 +55,30 @@ class Slice(Spatial):
         except:
             tstep=[tstep]
             self.Ntslice = 1
-            
-        
+
+
         self.data = self.interpSlice(variable,method=method)
-        
+
         return self.data.squeeze()
-        
-        
+
+
     def pcolorslice(self, z, t=0,xaxis='xslice',titlestr=None,bathyoverlay=True,**kwargs):
         """
         Pcolor plot of the slice
-        
+
         Returns a handle to the pcolor object and the colorbar
         """
         # Find the colorbar limits if unspecified
 
-            
+
         #a=self.data[t,:].squeeze()
         am = np.ma.array (z, mask=np.isnan(self.data))
-        
+
         if self.clim is None:
             self.clim=[]
             self.clim.append(np.min(am))
             self.clim.append(np.max(am))
-        
+
         #h1 = plt.pcolor(self[xaxis],self.zslice,am,vmin=self.clim[0],vmax=self.clim[1],**kwargs)
         #X,Z = np.meshgrid(self[xaxis], self.zslice)
         #h1 = plt.pcolormesh(X, Z, am,vmin=self.clim[0],vmax=self.clim[1],**kwargs)
@@ -86,43 +86,43 @@ class Slice(Spatial):
                 extent=[self[xaxis].min(), self[xaxis].max(),\
                 -self.z_w[-1], -self.z_w[0]], aspect='auto',\
                  **kwargs)
-        
+
         #Overlay the bed
         if bathyoverlay:
             self._overlayBathy(self[xaxis],facecolor=[0.5,0.5,0.5])
             #self._overlayBathy(self[xaxis][0,:],facecolor=[0.5,0.5,0.5])
-        
+
         # Set labels etc
         plt.xlabel(self._getXlabel(xaxis))
         plt.ylabel('Depth [m]')
-        
+
         plt.xlim([self[xaxis].min(),self[xaxis].max()])
         plt.ylim([self.hslice.min(),0])
-        
+
         axcb = plt.colorbar(h1)
-        
-        
+
+
         if titlestr is None:
             title = plt.title(self.__genTitle())
         else:
             title = plt.title(titlestr)
-        
+
         return h1, axcb, title
-            
+
     def contourslice(self,z,t=0,xaxis='xslice',clevs=20,titlestr=None,bathyoverlay=True,\
         filled = True, outline = False,colorbar=True,**kwargs):
         """
         Filled-contour plot of the slice
-        
+
         Returns a handle to the pcolor object and the colorbar
         """
-          
+
         if not filled:
             outline=True
 
         #a=self.data[t,:].squeeze()
         am = np.ma.array (z, mask=np.isnan(z))
-        
+
         # Find the colorbar limits if unspecified
         if self.clim is None:
             self.clim=[]
@@ -130,122 +130,122 @@ class Slice(Spatial):
             self.clim.append(np.max(am))
 
         klayer,Nkmax = self.get_klayer()
-        
+
         if type(clevs)==type(1): # is integer
             V = np.linspace(self.clim[0],self.clim[1],clevs)
         else:
             V = clevs
-         
+
         if filled:
             h1 = plt.contourf(self[xaxis],-self.z_r[klayer],am,V,vmin=self.clim[0],vmax=self.clim[1],**kwargs)
-        
+
         if outline:
             h2 = plt.contour(self[xaxis],-self.z_r[klayer],am,V,**kwargs)
-            
+
         #Overlay the bed
         if bathyoverlay:
             self._overlayBathy(self[xaxis][:],facecolor=[0.5,0.5,0.5])
-        
+
         # Set labels etc
         plt.xlabel(self._getXlabel(xaxis))
         plt.ylabel('Depth [m]')
-        
+
         plt.xlim([self[xaxis].min(),self[xaxis].max()])
         plt.ylim([self.hslice.min(),0])
-        
+
         if colorbar and filled:
             axcb = plt.colorbar(h1)
-        
-        
+
+
         if titlestr is None:
             plt.title(self.__genTitle())
         else:
             plt.title(titlestr)
-        
+
         if filled and not outline:
-            return h1, 
+            return h1,
         elif not filled and outline:
-            return h2, 
+            return h2,
         elif filled and outline:
-            return h1, h2, 
-    
-    def xtplot(self,zlayer=0,xaxis='xslice',clevs=20,titlestr=None,**kwargs):    
+            return h1, h2,
+
+    def xtplot(self,zlayer=0,xaxis='xslice',clevs=20,titlestr=None,**kwargs):
         """
-        x-t contour plot of the sliced variable along vertical layer, 'zlayer'. 
-        
-        zlayer can be:            
+        x-t contour plot of the sliced variable along vertical layer, 'zlayer'.
+
+        zlayer can be:
             [0 - Nkmax] - vertical layer number
             'seabed' - seabed value
             'diff' - top minus bottom difference)
-                       
+
         """
-        
+
         #kbed = np.max(self.Nk[self.cellind]-1,0)
         kbed = self.Nk[self.cellind]
         if zlayer == 'seabed':
-            a= self.data[:,kbed,range(0,self.Npt)]
+            a= self.data[:,kbed,list(range(0,self.Npt))]
             zstring = 'seabed'
-            
+
         elif zlayer == 'diff':
-            atop = self.data[:,0,:]    
-            abot = self.data[:,kbed,range(0,self.Npt)]
+            atop = self.data[:,0,:]
+            abot = self.data[:,kbed,list(range(0,self.Npt))]
             a = atop - abot
             zstring = 'Surface value - seabed value'
-            
+
         else:
             a = self.data[:,zlayer,:]
             zstring = '%3.1f [m]'%self.z_r[zlayer]
-            
+
         am = np.ma.array (a, mask=np.isnan(a))
-        
+
         if self.clim is None:
             self.clim=[]
             self.clim.append(np.min(am))
             self.clim.append(np.max(am))
-        
+
         V = np.linspace(self.clim[0],self.clim[1],clevs)
-        
+
         h1 = plt.contourf(self[xaxis][0,:],self.time[self.tstep],am,V,vmin=self.clim[0],vmax=self.clim[1],**kwargs)
-        
+
         plt.xlabel(self._getXlabel(xaxis))
         plt.ylabel('Time')
-            
+
         axcb = plt.colorbar(h1)
-        
+
         titlestr='%s [%s]\nLayer: %s'%(self.long_name,self.units,zstring)
         plt.title(titlestr)
-        
+
         return h1, axcb
-    
+
     def plotslice(self):
         """
         Plots the slice location on a map
         """
         self.contourf(z=-self.dv,clevs=30,titlestr='',cmap='gist_earth')
         plt.plot(self.xslice[0,:],self.yslice[0,:],'m--')
-        
+
     def animate(self,**kwargs):
         """
         Animates the slice
         """
-        
+
         # Initialise the plot object
         h1,cb = self.pcolorslice(**kwargs)
-        
+
         fig = plt.gcf()
         ax = fig.gca()
         title=ax.set_title("")
-        
+
         def updateScalar(ii):
             a=self.data[ii,:].squeeze()
             am = np.ma.array (a, mask=np.isnan(a))
             h1.set_array(am[am.mask==False])
             title.set_text(self.__genTitle(tt=self.tstep[ii]))
-            
+
             return (title,h1)
-            
+
         self.anim = animation.FuncAnimation(fig, updateScalar, frames=len(self.tstep), interval=50, blit=True)
-                
+
     def interpSlice(self,variable,method='linear'):
         """
         Interpolates the data in raw data onto the slice array
@@ -260,8 +260,8 @@ class Slice(Spatial):
 
         for tt in range(self.Ntslice):
             if self.Ntslice>1:
-                print 'Slicing data at time-step: %d of %d...'%(tt,self.Ntslice)
-            
+                print('Slicing data at time-step: %d of %d...'%(tt,self.Ntslice))
+
             self.tstep=[tstep[tt]]
             rawdata = self.loadData(variable=variable)
             for kk in range(self.Nkmax):
@@ -270,21 +270,21 @@ class Slice(Spatial):
                 elif method == 'linear':
                     slicedata[tt,kk,:] = self.interpLinear(rawdata[kk,:].squeeze(),self.xslice[0,:],self.yslice[0,:],self.cellind,k=kk)
                 else:
-                    raise Exception, ' unknown interpolation method: %s. Must be "nearest" or "linear"'%method
-            
+                    raise Exception(' unknown interpolation method: %s. Must be "nearest" or "linear"'%method)
+
         mask = self.maskslice.reshape((1,self.Nkmax,self.Npt))
         mask = mask==False
         mask = mask.repeat(self.Ntslice,axis=0)
         slicedata[mask] = np.nan
-        
+
         self.tstep=tstep
-        
+
         return slicedata
-        
-        
+
+
     def get_klayer(self):
         if self.klayer[0]==-99:
-            klayer=range(self.Nkmax)
+            klayer=list(range(self.Nkmax))
             Nkmax = self.Nkmax
         else:
             klayer=self.klayer
@@ -295,24 +295,24 @@ class Slice(Spatial):
     def _initInterp(self):
         """
         Initialise the interpolant
-        
-        Finds the horizontal indices of the slice points and 
+
+        Finds the horizontal indices of the slice points and
         constructs the 3D mask array
         """
-        
+
         # Find the cell index of each point along the slice
         self.Tri = GridSearch(self.xp,self.yp,self.cells)
-        
+
         self.cellind = self.Tri(self.xslice,self.yslice)
 
         klayer,Nkmax = self.get_klayer()
-        
+
         # Construct the 3D coordinate arrays
         self.xslice = np.repeat(self.xslice.reshape((1,self.Npt)),self.Nkmax,axis=0)
         self.yslice = np.repeat(self.yslice.reshape((1,self.Npt)),self.Nkmax,axis=0)
         self.distslice = np.repeat(self.distslice.reshape((1,self.Npt)),self.Nkmax,axis=0)
         self.zslice = np.repeat(-self.z_r[klayer].reshape((self.Nkmax,1)),self.Npt,axis=1)
-        
+
         # Construct the mask array
         self.calc_mask()
 
@@ -322,12 +322,12 @@ class Slice(Spatial):
     def calc_mask(self):
         """ Construct the mask array"""
         self.maskslice = np.zeros((self.Nkmax,self.Npt),dtype=np.bool)
-        
+
         for kk in range(self.Nkmax):
             for ii in range(self.Npt):
                 if kk <= self.Nk[self.cellind[ii]]:
                     self.maskslice[kk,ii]=True
-    
+
     def _getSliceCoords(self,kind=3):
         """
         Fits a spline through the input slice points
@@ -337,46 +337,46 @@ class Slice(Spatial):
         n = self.xpt.shape[0]
         t = np.linspace(0,1,n)
         tnew = np.linspace(0,1,self.Npt)
-        
+
         if n <= 3:
             kind='linear' # Spline won't work with <= 3 points
         else:
             kind=kind
-            
+
         Fx = interp1d(t,self.xpt,kind=kind)
         Fy = interp1d(t,self.ypt,kind=kind)
-        
+
         self.xslice = Fx(tnew)
         self.yslice = Fy(tnew)
 
         self._getDistCoords()
-        
+
     def _getDistCoords(self):
         # Calculate the distance along the slice
         self.distslice = np.zeros_like(self.xslice)
         self.distslice[1:] = np.sqrt( (self.xslice[1:]-self.xslice[:-1]) **2 + \
            (self.yslice[1:]-self.yslice[:-1]) **2 )
-        
+
         self.distslice = self.distslice.cumsum()
-        
+
     def _getXYgraphically(self):
         """
         Plot a map of the bathymetry and graphically select the slice points
         """
         self.contourf(z=-self.dv,clevs=30,titlestr='Select points for slice on map\nRight-click to finish; middle-click to remove last point.',cmap='gist_earth')
         x = plt.ginput(n=0,timeout=0,mouse_pop=2,mouse_stop=3)
-        
+
         # Find the location of the slice
         xy = np.array(x)
         self.xpt=xy[:,0]
         self.ypt=xy[:,1]
         self._getSliceCoords()
-        
+
         plt.plot(self.xslice,self.yslice,'m--')
-        
+
         plt.title('Close figure to continue...')
         plt.show()
-    
+
     def _getXlabel(self,xaxis):
         if xaxis == 'xslice':
             xlab = 'Easting [m]'
@@ -385,31 +385,31 @@ class Slice(Spatial):
         elif xaxis == 'distslice':
             xlab = 'Distance along transect [m]'
         else:
-            raise Exception, ' unknown "xaxis" value %d.\n Must be one of "xslice", "yslice" or "distslice".'%xaxis
-            
+            raise Exception(' unknown "xaxis" value %d.\n Must be one of "xslice", "yslice" or "distslice".'%xaxis)
+
         return xlab
-        
+
     def _overlayBathy(self,xdata,**kwargs):
         """
         Pretty bathymetry overlay
         """
-        
+
         plt.fill_between(xdata,self.hslice,y2=self.hslice.min(),zorder=1e6,**kwargs)
-        
-        
+
+
     def __genTitle(self,tt=None):
-        
+
         if tt  is None:
             if type(self.tstep)==int:
                 tt = self.tstep
             else:
                 tt = self.tstep[0]
-                
+
         titlestr='%s [%s]\nTime: %s'%(self.long_name,self.units,\
                 datetime.strftime(self.time[tt],'%d-%b-%Y %H:%M:%S'))
-                
+
         return titlestr
-        
+
 class SliceEdge(Slice):
     """
     Slice suntans edge-based data at all edges near a line
@@ -419,7 +419,7 @@ class SliceEdge(Slice):
 
     edgemethod=1
     def __init__(self,ncfile,xpt=None,ypt=None,Npt=100,klayer=[-99],**kwargs):
-        
+
         self.Npt=Npt
 
         Spatial.__init__(self,ncfile,klayer=klayer,**kwargs)
@@ -478,14 +478,14 @@ class SliceEdge(Slice):
 
 
     def loadData(self,variable=None,setunits=True,method='mean'):
-        """ 
+        """
         Load the specified suntans variable data as a vector
 
         Overloaded method for edge slicing - it is quicker to load time step by
         time step in a loop.
-        
+
         method: edge interpolation method - 'mean', 'max'
-            
+
         """
 
         nc = self.nc
@@ -508,7 +508,7 @@ class SliceEdge(Slice):
         if self.hasVar(variable):
             if self.hasDim(variable,self.griddims['Ne']):
                 isCell=False
-            elif self.hasDim(variable,self.griddims['Nc']): 
+            elif self.hasDim(variable,self.griddims['Nc']):
                 isCell=True
                 # Check if 3D
             if self.hasDim(variable,self.griddims['Nk']) or\
@@ -552,8 +552,8 @@ class SliceEdge(Slice):
                     return nc.variables[variable][tt,klayer,:]
                 else:
                     return nc.variables[variable][tt,:]
-                
-        # For loop where the data is extracted 
+
+        # For loop where the data is extracted
         nt = len(self.tstep)
         ne = len(self.j)
         if is3D==True:
@@ -566,7 +566,7 @@ class SliceEdge(Slice):
             tmp = ncload(nc,variable,tt)
             # Return the mean for cell-based variables
             if isCell:
-                if method == 'mean': 
+                if method == 'mean':
                     self.data[ii,...] = 0.5*(tmp[...,nc1]+tmp[...,nc2])
                 elif method == 'max':
                     tmp2 = np.dstack((tmp[...,nc1], tmp[...,nc2]))
@@ -644,11 +644,11 @@ class SliceEdge(Slice):
             self.clim=[]
             self.clim.append(np.min(z))
             self.clim.append(np.max(z))
-        
+
         # Set the xy limits
-        xlims=[self.distslice.min(),self.distslice.max()] 
+        xlims=[self.distslice.min(),self.distslice.max()]
         ylims=[-self.z_w.max(),-self.z_w.min()]
-        
+
         self.fig,self.ax,self.patches,self.cb=unsurf(self.xye,z.ravel(),xlim=xlims,ylim=ylims,\
             clim=self.clim,**kwargs)
 
@@ -678,7 +678,7 @@ class SliceEdge(Slice):
         area = dzf * self.df[self.j]
 
         area[self.maskslice]=0
-        
+
         return area
 
     def getdzf(self,eta):
@@ -702,12 +702,12 @@ class SliceEdge(Slice):
         """ Construct the mask array"""
         klayer,Nkmax=self.get_klayer()
         self.maskslice = np.zeros((Nkmax,len(self.j)),dtype=np.bool)
-        
+
         for k,kk in enumerate(klayer):
             for ii,j in enumerate(self.j):
                 if kk >= self.Nke[j]:
                     self.maskslice[k,ii]=True
- 
+
 
     def get_edgeindices(self,xpt,ypt,method=1, abortedge=False):
         """
@@ -715,7 +715,7 @@ class SliceEdge(Slice):
 
         method - method for line finding algorithm
                0 - closest point to line
-               1 - closest point without doing a u-turn  
+               1 - closest point without doing a u-turn
         abortedge - Set true to abort when slice hits a boundary
         """
         # Load the line as a shapely object
@@ -743,7 +743,7 @@ class SliceEdge(Slice):
                         cnodes.append(nn)
             return cnodes
 
-        def min_dist(nodes,line):    
+        def min_dist(nodes,line):
             """Returns the index of the node with the minimum distance
             to the line"""
 
@@ -756,7 +756,7 @@ class SliceEdge(Slice):
                 if dd == min(dist):
                     return nodes[ii]
 
-        def min_dist_line(cnode,nodes,line):    
+        def min_dist_line(cnode,nodes,line):
             """Returns the index of the node with the minimum distance
             to the line"""
 
@@ -772,7 +772,7 @@ class SliceEdge(Slice):
                 if dd == min(dist):
                     return nodes[ii]
 
-        def min_dist_angle(cnode,nodes,line):    
+        def min_dist_angle(cnode,nodes,line):
             """Returns the index of the node with the minimum distance
             to the line"""
 
@@ -814,7 +814,7 @@ class SliceEdge(Slice):
             rank = np.argsort(dist)
             for nn in range(dist.shape[0]):
                 if np.abs(angdiff[rank[nn]]) <= np.pi/2:
-                    return nodes[rank[nn]] 
+                    return nodes[rank[nn]]
             # if they all u-turn return the min dist
             return nodes[rank[0]]
 
@@ -833,14 +833,14 @@ class SliceEdge(Slice):
                 break
             if ii>1 and abortedge:
                 if self.mark[self.grd.find_edge([newnode,nodelist[-1]])] not in [0,5]:
-                    print 'Warning: reached a boundary cell. Aborting edge finding routine'
+                    print('Warning: reached a boundary cell. Aborting edge finding routine')
                     break
 
             nodelist.append(newnode)
             if newnode == endnode:
                 #print 'Reached end node.'
                 break
-                
+
         # Return the list of edges connecting all of the nodes
         return [self.grd.find_edge([nodelist[ii],nodelist[ii+1]]) for ii in\
             range(len(nodelist)-1)], nodelist
@@ -853,7 +853,7 @@ class MultiSliceEdge(SliceEdge):
     """
 
     def __init__(self,ncfile,xpt=None,ypt=None,Npt=100,klayer=[-99],**kwargs):
-        
+
         self.Npt=Npt
 
         Spatial.__init__(self,ncfile,klayer=klayer,**kwargs)
@@ -883,7 +883,7 @@ class MultiSliceEdge(SliceEdge):
             # Update the x and y axis of the slice
             self.xslice=self.xp[nodelist]
             self.yslice=self.yp[nodelist]
-            
+
 
             self._getDistCoords()
 
@@ -910,7 +910,7 @@ class MultiSliceEdge(SliceEdge):
 
         # Find the index of each slice into this j array
         for ii,ss in enumerate(self.slices):
-            ind = np.searchsorted(self.j,np.array(ss['j'])) 
+            ind = np.searchsorted(self.j,np.array(ss['j']))
             self.slices[ii].update({'subind':ind})
 
         self.j = self.j.tolist()
@@ -959,13 +959,13 @@ class MultiSliceEdge(SliceEdge):
                 dx_sum = np.repeat(dx_sum[:,np.newaxis],ne,axis=-1)
                 dx_norm = dx / dx_sum
                 data[ii,:] =  np.sum( phimean*dx_norm,axis=-1)
-        else:   
-            raise Exception, 'axis = %s not supported'%axis
+        else:
+            raise Exception('axis = %s not supported'%axis)
 
         return data
 
-           
-        
+
+
 #####
 ## Testing data
 #
@@ -978,7 +978,7 @@ class MultiSliceEdge(SliceEdge):
 #        319334.74916504,  318059.30117277,  319618.18205221,
 #        322310.79448032,  326987.43711862,  329113.18377239,
 #        332939.52774918])
-#        
+#
 #ypt = np.array([ 3247017.02417632,  3247867.32283783,  3247867.32283783,
 #        3250559.93526594,  3254386.27924273,  3259488.07121179,
 #        3263456.13163216,  3267140.75916537,  3272525.98402159,
@@ -1017,7 +1017,7 @@ class MultiSliceEdge(SliceEdge):
 #for kk in range(30):
 #    print kk
 #    tempnode = sun.cell2nodek(cell_scalar[kk,:],k=kk)
-    
+
 
 
 # Gradient routine
@@ -1037,9 +1037,9 @@ class MultiSliceEdge(SliceEdge):
 #    def cell2nodek(self,cell_scalar,k=0):
 #        """
 #        ### NOT USED ###
-#        
+#
 #        Map a cell-based scalar onto a node
-#        
+#
 #        Uses sparse matrices to do the heavy lifting
 #        """
 #        if not self.__dict__.has_key('_datasparse'):
@@ -1050,69 +1050,69 @@ class MultiSliceEdge(SliceEdge):
 #                self._datasparse.append(sparse.dok_matrix((self.Np,self.Nc),dtype=np.double))
 #                self._Asparse.append(sparse.dok_matrix((self.Np,self.Nc),dtype=np.double))
 #                self._indsparse.append(sparse.dok_matrix((self.Np,self.Nc),dtype=np.int))
-#                
+#
 #                for i in range(self.Nc):
 #                    for j in range(3):
 #                        if kk <= self.Nk[i]:
 #                            self._Asparse[kk][self.cells[i,j],i] = self.Ac[i]
-#                
+#
 #                self._Asparse[kk]=self._Asparse[kk].tocoo()
-#        
+#
 #        for i in range(self.Nc):
 #            for j in range(3):
 #                if k <= self.Nk[i]:
 #                    self._datasparse[k][self.cells[i,j],i] = cell_scalar[i]
 #                    #self._Asparse[k][self.cells[i,j],i] = self.Ac[i]
 #                    #self._indsparse[k][self.cells[i,j],i] = i
-#                
+#
 #        node_scalar = self._datasparse[k].tocoo().multiply(self._Asparse[k]).sum(axis=1) / self._Asparse[k].sum(axis=1)
-#        
+#
 #        return np.array(node_scalar).squeeze()
 #    def cell2nodekold(self,cell_scalar,k=0):
 #        """
 #        Map a cell-based scalar onto a node
-#        
+#
 #        This is calculated via a mean of the cells connected to a node(point)
 #        """
-#        
+#
 #        # Area weighted interpolation
 #        node_scalar = [np.sum(cell_scalar[self.pnt2cellsk(k,ii)]*self.Ac[self.pnt2cellsk(k,ii)])\
 #            / np.sum( self.Ac[self.pnt2cellsk(k,ii)]) for ii in range(self.Np)]
 #        return np.array(node_scalar)
-#    
+#
 #    def cell2nodeki(self,cell_scalar,cellind,k):
 #        """
 #        NOT WORKING
 #
-#        ## Needs an additional lookup index to go from local cell index to the main 
-#        grid cell index        
-#        
+#        ## Needs an additional lookup index to go from local cell index to the main
+#        grid cell index
+#
 #        Map a cell-based scalar onto a node
-#        
+#
 #        This returns the nodes values of the nodes connected to cells, cellind at
 #        vertical level, k
-#        
-#        This is useful for finding the nodal values for a limited number of points, i.e., 
+#
+#        This is useful for finding the nodal values for a limited number of points, i.e.,
 #        during interpolation
 #        """
 #        ind = self.cells[cellind,:]
-#        
+#
 #        node_scalar = np.zeros_like(ind)
-#        
+#
 #        ni = cellind.shape[0]
-#        
+#
 #        for ii in range(ni):
 #            for jj in range(3):
 #                node_scalar[ii,jj] = np.sum(cell_scalar[self.pnt2cellsk(k[ii],ind[ii,jj])]*self.Ac[self.pnt2cellsk(k[ii],ind[ii,jj])])\
-#            / np.sum( self.Ac[self.pnt2cellsk(k[ii],ind[ii,jj])]) 
-#                
-#        
+#            / np.sum( self.Ac[self.pnt2cellsk(k[ii],ind[ii,jj])])
+#
+#
 #        return node_scalar
-#        
+#
 #    def pnt2cellsk(self, k, pnt_i):
 #        """
 #        Returns the cell indices for a point, pnt_i at level, k
-#        
+#
 #        (Stolen from Rusty's TriGrid class)
 #        """
 #        if not self.__dict__.has_key('_pnt2cellsk'):
@@ -1127,16 +1127,16 @@ class MultiSliceEdge(SliceEdge):
 #                        if k <= self.Nk[i]:
 #                            self._pnt2cellsk[k][self.cells[i,j]].append(i)
 #        return self._pnt2cellsk[k][pnt_i]
-#        
+#
 #    def pnt2cellsparse(self,pnt_i):
-#        
+#
 #        pdb.set_trace()
 #        #self._pnt2cellsk = sparse.dok_matrix((self.Np,self.Nc),dtype=np.int)
 #        testsparse = sparse.dok_matrix((self.Np,self.Nc),dtype=np.int)
-#        
+#
 #        for i in range(self.Nc):
 #            for j in range(3):
 #                #self._pnt2cells[self.cells[i,j],i] = i
 #                testsparse[self.cells[i,j],i] = i
-#        
-#        pdb.set_trace() 
+#
+#        pdb.set_trace()

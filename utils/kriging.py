@@ -8,29 +8,29 @@ import numpy as np
 import pdb
 
 class kriging(object):
-    
+
     """ Class for kriging interpolation"""
-    
+
     ### Properties ###
     maxdist = 1000
     NNear = 12
-    
+
     # Variogram paramters
     varmodel = 'spherical'
     nugget = 0.1
     sill = 0.8
     vrange = 250.0
-    
+
     verbose = True
-    
+
     def __init__(self,XYin,XYout,**kwargs):
         self.__dict__.update(kwargs)
-        
+
         self.XYin = XYin
         self.XYout = XYout
-        
+
         self._buildWeights()
-        
+
     def __call__(self,Zin):
         """
         Calls the interpolation function with the scalar in Zin
@@ -38,21 +38,21 @@ class kriging(object):
         self.Z = np.zeros((self.Nc,))
         for ii in range(0,self.Nc):
             self.Z[ii] = np.dot(self.W[:,ii],Zin[self.ind[ii,:]])
-            
+
         return self.Z
-                
+
     def _buildWeights(self):
         """ Calculates the kriging weights for all of the points in the grid"""
         # Compute the spatial tree
         kd = spatial.cKDTree(self.XYin)
-        
+
         # Perform query on all of the points in the grid
         dist, self.ind=kd.query(self.XYout,
                 distance_upper_bound=self.maxdist,
                 k=self.NNear)
-        
+
         self.Nc = np.size(self.ind,axis=0)
-        print '%d interpolation points.'%self.Nc
+        print('%d interpolation points.'%self.Nc)
 
         #get_weights = np.vectorize(self.get_weights)
         W = [self.get_weights(dist[ii,:], self.XYin[self.ind[ii,:],0],\
@@ -66,28 +66,28 @@ class kriging(object):
         #p0=0
         #pstep=5
         #for ii in range(0,self.Nc):
-        #    
+        #
         #    if self.verbose:
         #        pfinish = float(ii)/float(self.Nc)*100.0
         #        if  pfinish> p0:
         #            print '%3.1f %% complete...'%pfinish
         #            p0+=pstep
-        #                        
+        #
         #    W = self.get_weights(dist[ii,:],\
         #        self.XYin[self.ind[ii,:],0],\
         #        self.XYin[self.ind[ii,:],1])
-        #    
-        #    self.W[:,ii] = W.T 
-                
-        
+        #
+        #    self.W[:,ii] = W.T
+
+
     def get_weights(self,dist,xin,yin):
-        
+
         """ Calculates the kriging weights point by point"""
-        
+
         eps = 1e-10
         Ns = len(dist)
         #Ns = dist.shape[0]
-        
+
         # Construct the LHS matrix C
         C=np.ones((Ns+1,Ns+1))
         for i in range(0,Ns):
@@ -102,12 +102,12 @@ class kriging(object):
         ###
         # Old method
         ###
-        # Calculate the inverse of C 
+        # Calculate the inverse of C
         #Cinv = np.linalg.inv(C)
-        
+
         # Loop through each model point and calculate the vector D
         gamma = np.ones((Ns+1,1))
-        
+
         for j in range(0,Ns):
             gamma[j,0]= self.semivariogram(dist[j]+eps)
 
@@ -117,11 +117,11 @@ class kriging(object):
 
         W = np.linalg.solve(C,gamma)
 
-        #print np.size(gamma,axis=0),np.size(gamma,axis=1)   
+        #print np.size(gamma,axis=0),np.size(gamma,axis=1)
         return W[:-1]
         #
         #return 1.0/float(Ns)*np.ones((Ns,1))
-        
+
     def semivariogram(self,D):
         """ Semivariogram functions"""
         if self.varmodel == 'spherical':
@@ -131,6 +131,3 @@ class kriging(object):
                 tmp = D/self.vrange
                 F = self.nugget + (self.sill-self.nugget)*(1.5*tmp - 0.5*tmp**3)
         return F
-  
-        
-        

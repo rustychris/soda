@@ -6,7 +6,7 @@ import othertime
 from datetime import datetime
 from netCDF4 import Dataset
 import numpy as np
-from untrim_tools import untrim_ugrid as ugrid 
+from .untrim_tools import untrim_ugrid as ugrid
 
 import pdb
 
@@ -91,7 +91,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
     # Update the grad variable from the ascii grid file if supplied
     if not grdfile == None:
-        print 'Updating grid with ascii values...'
+        print('Updating grid with ascii values...')
         grd = Grid(grdfile)
         sun.grad = grd.grad[:,::-1]
 
@@ -104,7 +104,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     nc.Description = 'UnTRIM history file converted from SUNTANS output'
 
     # Write the dimensions
-    for dd in untrim_griddims.keys():
+    for dd in list(untrim_griddims.keys()):
         if dd == 'time':
             nc.createDimension(untrim_griddims[dd],0)
         elif dd =='numsides':
@@ -121,24 +121,24 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     ###
     def create_nc_var(name, dimensions, attdict,data=None, \
         dtype='f8',zlib=False,complevel=0,fill_value=999999.0):
-            
+
         tmp=nc.createVariable(name, dtype, dimensions,\
             zlib=zlib,complevel=complevel,fill_value=fill_value)
 
-        for aa in attdict.keys():
+        for aa in list(attdict.keys()):
             tmp.setncattr(aa,attdict[aa])
-        
+
         if not data==None:
             nc.variables[name][:] = data
-     
+
     # Make sure the masked cells have a value of -1
     mask = sun['cells'].mask.copy()
     sun['cells'][mask]=FILLVALUE
     sun['face'][mask]=FILLVALUE
 
-    for vv in untrim_gridvars.keys():
+    for vv in list(untrim_gridvars.keys()):
         vname = untrim_gridvars[vv]
-        print 'Writing grid variable %s (%s)...'%(vname,vv)
+        print('Writing grid variable %s (%s)...'%(vname,vv))
 
         if vv=='time':
             continue
@@ -165,7 +165,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
             data=sun[vv],dtype=ugrid[vname]['dtype'])
 
-            
+
     # Initialize the two time variables
     vname=untrim_gridvars['time']
     create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
@@ -175,10 +175,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
             dtype=ugrid[vname]['dtype'])
 
     ###
-    # Step 4: Initialize all of the time-varying variables (but don't write) 
+    # Step 4: Initialize all of the time-varying variables (but don't write)
     ###
     for vname  in varnames:
-        print 'Creating variable %s...'%(vname)
+        print('Creating variable %s...'%(vname))
 
         create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
             dtype=ugrid[vname]['dtype'],zlib=True,complevel=1,fill_value=999999.)
@@ -192,7 +192,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         # Convert the time to the untrim formats
         timestr = datetime.strftime(sun.time[tt],'%Y-%m-%d %H:%M:%S')
 
-        print 'Writing data at time %s (%d of %d)...'%(timestr,tt,tsteps[-1]) 
+        print('Writing data at time %s (%d of %d)...'%(timestr,tt,tsteps[-1]))
 
         #Write the time variables
         nc.variables['Mesh2_data_time'][ii]=tdays[ii]
@@ -203,24 +203,24 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         ###
         # Compute a few terms first
-        eta = sun.loadData(variable='eta' )  
-        U = sun.loadData(variable='U_F' )  
+        eta = sun.loadData(variable='eta' )
+        U = sun.loadData(variable='U_F' )
         dzz = sun.getdzz(eta)
         dzf = sun.getdzf(eta)
 
-        
+
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
         nc.variables[vname][:,ii]=eta
 
         vname = 'Mesh2_salinity_3d'
         #print '\tVariable: %s...'%vname
-        tmp3d = sun.loadData(variable='salt' )  
+        tmp3d = sun.loadData(variable='salt' )
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'Mesh2_vertical_diffusivity_3d'
         #print '\tVariable: %s...'%vname
-        tmp3d = sun.loadData(variable='nu_v' )  
+        tmp3d = sun.loadData(variable='nu_v' )
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'h_flow_avg'
@@ -281,9 +281,9 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         tmp2d = sun.Nkmax-ctop # one based
         nc.variables[vname][:,ii]=tmp2d
 
-    print 72*'#'
-    print '\t Finished SUNTANS->UnTRIM conversion'
-    print 72*'#'
+    print(72*'#')
+    print('\t Finished SUNTANS->UnTRIM conversion')
+    print(72*'#')
 
 
 

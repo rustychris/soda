@@ -4,7 +4,7 @@ Tools for handling the OSU tidal prediction software (OTPS) output data
 (http://volkov.oce.orst.edu/tides/)
 
 This software is based on the tide model driver (TMD) matlab code from here:
-	http://polaris.esr.org/ptm_index.html
+        http://polaris.esr.org/ptm_index.html
 
 Matt Rayson
 Stanford University
@@ -27,37 +27,37 @@ otis_constits = { 'M2':{'index':1,'omega':1.405189e-04,'v0u':1.731557546},\
      'K1':{'index':5,'omega':7.292117e-05,'v0u':0.173003674},\
      'O1':{'index':6,'omega':6.759774e-05,'v0u':1.558553872},\
      'P1':{'index':7,'omega':7.252295e-05,'v0u':6.110181633},\
-     'Q1':{'index':8,'omega':6.495854e-05,'v0u':5.877717569}}    
-    
+     'Q1':{'index':8,'omega':6.495854e-05,'v0u':5.877717569}}
+
 def tide_pred(modfile,lon,lat,time,z=None,conlist=None):
     """
     Performs a tidal prediction at all points in [lon,lat] at times in vector [time]
-    
+
     """
-    
+
     # Read and interpolate the constituents
     u_re, u_im, v_re, v_im, h_re, h_im, omega, conlist = extract_HC(modfile,lon,lat,z=z,conlist=conlist)
-    
+
     # Initialise the output arrays
     sz = lon.shape
     nx = np.prod(sz)
     nt = time.shape[0]
     ncon = omega.shape[0]
-    
+
     h_re = h_re.reshape((ncon,nx))
     h_im = h_im.reshape((ncon,nx))
     u_re = u_re.reshape((ncon,nx))
     u_im = u_im.reshape((ncon,nx))
     v_re = v_re.reshape((ncon,nx))
     v_im = v_im.reshape((ncon,nx))
-        
+
     # Calculate nodal correction to amps and phases
     #baseyear = time[0].year
     #t1992 = othertime.SecondsSince(datetime(baseyear,1,1),basetime=datetime(1992,1,1))/86400.0
     t1992 = othertime.SecondsSince(time[0],basetime=datetime(1992,1,1))/86400.0
-    
+
     pu,pf,v0u = nodal(t1992+48622.0,conlist)
-       
+
     # Calculate the time series
     tsec = othertime.SecondsSince(time,basetime=datetime(1992,1,1)) # Needs to be referenced to 1992
 
@@ -68,61 +68,61 @@ def tide_pred(modfile,lon,lat,time,z=None,conlist=None):
         for ii in range(0,nx):
             h[:,ii] += pf[nn]*h_re[nn,ii] * np.cos(om*tsec + v0u[nn] + pu[nn]) - \
                 pf[nn]*h_im[nn,ii] * np.sin(om*tsec + v0u[nn] + pu[nn])
-                
+
             u[:,ii] += pf[nn]*u_re[nn,ii] * np.cos(om*tsec + v0u[nn] + pu[nn]) - \
                 pf[nn]*u_im[nn,ii] * np.sin(om*tsec + v0u[nn] + pu[nn])
-                
+
             v[:,ii] += pf[nn]*v_re[nn,ii] * np.cos(om*tsec + v0u[nn] + pu[nn]) - \
                 pf[nn]*v_im[nn,ii] * np.sin(om*tsec + v0u[nn] + pu[nn])
-    
+
     szo = (nt,)+sz
     return h.reshape(szo), u.reshape(szo), v.reshape(szo)
-    
+
 def tide_pred_correc(modfile,lon,lat,time,dbfile,ID,z=None,conlist=None):
     """
     Performs a tidal prediction at all points in [lon,lat] at times in vector [time]
-    
+
     Applies an amplitude and phase correction based on a time series
     """
     from timeseries import timeseries, loadDBstation
-    
-    print 'Calculating tidal correction factors from time series...'
+
+    print('Calculating tidal correction factors from time series...')
     # Load using the timeseries module
     t0 = datetime.strftime(time[0],'%Y%m%d.%H%M%S')
     t1 = datetime.strftime(time[-1],'%Y%m%d.%H%M%S')
     dt = time[1]-time[0]
-    
-    print t0, t1, dt.total_seconds()
+
+    print(t0, t1, dt.total_seconds())
     timeinfo = (t0,t1,dt.total_seconds())
     TS,meta = loadDBstation(dbfile,ID,'waterlevel',timeinfo=timeinfo,filttype='low',cutoff=2*3600,output_meta=True)
     lonpt=meta['longitude']
     latpt=meta['latitude']
-    print lonpt,latpt
-    
+    print(lonpt,latpt)
+
     # Extract the OTIS tide prediction
     u_re, u_im, v_re, v_im, h_re, h_im, omega, conlist = extract_HC(modfile,lonpt,latpt)
     h_amp = np.abs(h_re+1j*h_im)[:,0]
     h_phs = np.angle(h_re+1j*h_im)[:,0]
-    
+
     # Harmonic analysis of observation time series
     amp, phs, frq, frqnames, htide = TS.tidefit(frqnames=conlist)
     TS_harm = timeseries(time,htide)
     residual = TS.y - htide
-    
+
     # Calculate the amp and phase corrections
     dphs = phs - h_phs + np.pi
     damp = amp/h_amp
 
     # Extract the data along the specified points
     u_re, u_im, v_re, v_im, h_re, h_im, omega, conlist = extract_HC(modfile,lon,lat,z=z,conlist=conlist)
-    
+
     h_amp = np.abs(h_re+1j*h_im)
     h_phs = np.angle(h_re+1j*h_im)
     u_amp = np.abs(u_re+1j*u_im)
     u_phs = np.angle(u_re+1j*u_im)
     v_amp = np.abs(v_re+1j*v_im)
     v_phs = np.angle(v_re+1j*v_im)
-        
+
     # Initialise the output arrays
     sz = lon.shape
     nx = np.prod(sz)
@@ -131,59 +131,59 @@ def tide_pred_correc(modfile,lon,lat,time,dbfile,ID,z=None,conlist=None):
     h=np.zeros((nt,nx))
     u=np.zeros((nt,nx))
     v=np.zeros((nt,nx))
-    
+
     # Rebuild the time series
     #tsec=TS_harm.tsec - TS_harm.tsec[0]
     tsec = othertime.SecondsSince(time,basetime=time[0])
-    print tsec[0]
+    print(tsec[0])
     for nn,om in enumerate(omega):
         for ii in range(0,nx):
             h[:,ii] += damp[nn]*h_amp[nn,ii] * np.cos(om*tsec - (h_phs[nn,ii] + dphs[nn]))
             u[:,ii] += damp[nn]*u_amp[nn,ii] * np.cos(om*tsec - (u_phs[nn,ii] + dphs[nn]))
             v[:,ii] += damp[nn]*v_amp[nn,ii] * np.cos(om*tsec - (v_phs[nn,ii] + dphs[nn]))
-            
+
     szo = (nt,)+sz
     return h.reshape(szo), u.reshape(szo), v.reshape(szo), residual
 
 def tide_pred_old(modfile,lon,lat,time,z=None,conlist=None):
     """
-	
-	### UNUSED ###
+
+        ### UNUSED ###
     Performs a tidal prediction at all points in [lon,lat] at times in vector [time]
-    
+
     """
-    
+
     # Read and interpolate the constituents
     u_re, u_im, v_re, v_im, h_re, h_im, omega, conlist = extract_HC(modfile,lon,lat,z=z,conlist=conlist)
-    
+
     # Initialise the output arrays
     sz = lon.shape
     nx = np.prod(sz)
     nt = time.shape[0]
     ncon = omega.shape[0]
-    
+
     h_re = h_re.reshape((ncon,nx))
     h_im = h_im.reshape((ncon,nx))
     u_re = u_re.reshape((ncon,nx))
     u_im = u_im.reshape((ncon,nx))
     v_re = v_re.reshape((ncon,nx))
     v_im = v_im.reshape((ncon,nx))
-    
+
     # Nodal correction to amps and phases here...
     baseyear = time[0].year
     amp, phase = cart2pol(h_re, h_im)
     amp,phase = nodal_correction(baseyear,conlist, amp, phase)
     h_re, h_im = pol2cart(amp, phase)
-    
+
     amp, phase = cart2pol(u_re, u_im)
     amp, phase = nodal_correction(baseyear,conlist, amp, phase)
     u_re, u_im = pol2cart(amp, phase)
-        
+
     amp, phase = cart2pol(v_re, v_im)
     amp, phase = nodal_correction(baseyear,conlist, amp, phase)
     v_re, v_im = pol2cart(amp, phase)
-    
-    
+
+
     # Calculate the time series
     tsec = othertime.SecondsSince(time,basetime=datetime(baseyear,1,1))
     h=np.zeros((nt,nx))
@@ -194,11 +194,11 @@ def tide_pred_old(modfile,lon,lat,time,z=None,conlist=None):
             h[:,ii] += h_re[nn,ii] * np.cos(om*tsec) + h_im[nn,ii] * np.sin(om*tsec)
             u[:,ii] += u_re[nn,ii] * np.cos(om*tsec) + u_im[nn,ii] * np.sin(om*tsec)
             v[:,ii] += v_re[nn,ii] * np.cos(om*tsec) + v_im[nn,ii] * np.sin(om*tsec)
-    
+
     szo = (nt,)+sz
     return h.reshape(szo), u.reshape(szo), v.reshape(szo)
-    
-    
+
+
 
 def extract_phsamp(tidemod, lon, lat, basetime, conlist):
     """
@@ -208,13 +208,13 @@ def extract_phsamp(tidemod, lon, lat, basetime, conlist):
         extract_HC(tidemod, X, Y, conlist = conlist)
 
     t1992 = othertime.SecondsSince(basetime,basetime=datetime(1992,1,1))/86400.0
-    
+
     pu,pf,v0u = nodal(t1992+48622.0,conlist)
 
     u_amp = np.abs(u_re + 1j*u_im)
     v_amp = np.abs(v_re + 1j*v_im)
     h_amp = np.abs(h_re + 1j*h_im)
- 
+
     u_phs = np.angle(u_re + 1j*u_im)
     v_phs = np.angle(v_re + 1j*v_im)
     h_phs = np.angle(h_re + 1j*h_im)
@@ -236,65 +236,65 @@ def extract_phsamp(tidemod, lon, lat, basetime, conlist):
 def extract_HC(modfile,lon,lat,z=None,conlist=None):
     """
     Extract harmonic constituents from OTIS binary output and interpolate onto points in lon,lat
-    
+
     set "z" to specifiy depth for transport to velocity conversion
-    
+
     set "constituents" in conlist
-    
+
     Returns:
         u_re, u_im, v_re, v_im, h_re, h_im, omega, conlist
-    
+
     """
-    
+
     ###
     # Make sure the longitude is between 0 and 360
     lon = np.mod(lon,360.0)
-    
+
     ###
     # Read the filenames from the model file
     pathfile = os.path.split(modfile)
     path = pathfile[0]
-    
+
     f = open(modfile,'r')
     hfile = path+'/' + f.readline().strip()
     uvfile = path+'/' + f.readline().strip()
     grdfile = path+'/' + f.readline().strip()
     f.close()
-    
+
     ###
-    # Read the grid file 
+    # Read the grid file
     X,Y,depth, mask = read_OTPS_grd(grdfile)
     #X[X>180.0] = 180.0 - X[X>180.0]
     mask = mask == 1
-    
+
     # Create an interpolation object
     sz = lon.shape
     lon = lon.ravel()
     lat = lat.ravel()
     nx = lon.size
     F= interpXYZ(np.vstack((X[mask],Y[mask])).T,np.vstack((lon,lat)).T,method='idw',NNear=3,p=1.0)
-    
+
     # Interpolate the model depths onto the points if z is none
     if z == None:
         z = F(depth[mask])
     else:
         z = np.abs(z) # make sure they are positive
-        
+
     ###
     # Check that the constituents are in the file
     conOTIS = get_OTPS_constits(hfile)
-    
+
     if conlist == None:
         conlist = conOTIS
-        
+
     for vv in conlist:
         if not vv in conOTIS:
-            print 'Warning: constituent name: %s not present in OTIS file.'%vv
+            print('Warning: constituent name: %s not present in OTIS file.'%vv)
             conlist.remove(vv)
-            
+
     ###
-    # Now go through and read the data for each 
-    
+    # Now go through and read the data for each
+
     # Initialse the arrays
     ncon = len(conlist)
     u_re = np.zeros((ncon,nx))
@@ -304,25 +304,25 @@ def extract_HC(modfile,lon,lat,z=None,conlist=None):
     h_re = np.zeros((ncon,nx))
     h_im = np.zeros((ncon,nx))
     omega = np.zeros((ncon,))
-    
+
     for ii, vv in enumerate(conlist):
         idx = otis_constits[vv]['index']
         omega[ii] = otis_constits[vv]['omega']
-        print 'Interpolating consituent: %s...'%vv
-        
+        print('Interpolating consituent: %s...'%vv)
+
         # Read and interpolate h
         X ,Y, tmp_h_re, tmp_h_im = read_OTPS_h(hfile,idx)
         h_re[ii,:] = F(tmp_h_re[mask])
         h_im[ii,:] = F(tmp_h_im[mask])
-                
+
         # Read and interpolate u and v - Note the conversion from transport to velocity
         X ,Y, tmp_u_re, tmp_u_im, tmp_v_re, tmp_v_im = read_OTPS_UV(uvfile,idx)
         u_re[ii,:] = F(tmp_u_re[mask]) / z
         u_im[ii,:] = F(tmp_u_im[mask]) / z
         v_re[ii,:] = F(tmp_v_re[mask]) / z
         v_im[ii,:] = F(tmp_v_im[mask]) / z
-        
-        
+
+
     # Return the arrays in their original shape
     szout = (ncon,) + sz
     return u_re.reshape(szout), u_im.reshape(szout), v_re.reshape(szout), \
@@ -330,66 +330,66 @@ def extract_HC(modfile,lon,lat,z=None,conlist=None):
 
 
 def nodal_correction(year,conlist,amp, phase):
-        """
-		### UNUSED ###
-        Applies a lunar nodal correction to the amplitude and phase        
-        
-        Code modified from Rusty Holleman's GET_COMPONENTS code below...
-        #
-        # GET_COMPONENTS
-        #   [UAMP,UPHASE,VAMP,VPHASE,HAMP,HPHASE]=GET_COMPONENTS(YEAR,OMEGAT,LUN_NODE,V0U,AG)
-        #   calculates the tidal amplitudes and phases from the interpolated OTIS
-        #   data in the AG matrix.
-        #
-        #   This code has been adapted from Brian Dushaw's matlab scripts
-        #   obtained from http://909ers.apl.washington.edu/~dushaw/tidegui/tidegui.html
-        #
-        #function [uamp,uphase,vamp,vphase,hamp,hphase]=get_components(YEAR,omegat,lun_node,v0u,AG)
-        """
-        
-        import tide_consts as tc
+    """
+            ### UNUSED ###
+    Applies a lunar nodal correction to the amplitude and phase
 
-        #oneday=np.array( [335.62,  0,  322.55,  1.97,   334.63,  0.99,  -0.99,  321.57])
-        oneday = {'M2':335.62, 'S2':0, 'N2':322.55, 'K2':1.97, 'O1':334.63, 'K1':0.99, 'P1':-0.99, 'Q1':321.57}
-        #if year < 1970 or year > 2037:
-        #    print 'Constants for prediction year are not available'
+    Code modified from Rusty Holleman's GET_COMPONENTS code below...
+    #
+    # GET_COMPONENTS
+    #   [UAMP,UPHASE,VAMP,VPHASE,HAMP,HPHASE]=GET_COMPONENTS(YEAR,OMEGAT,LUN_NODE,V0U,AG)
+    #   calculates the tidal amplitudes and phases from the interpolated OTIS
+    #   data in the AG matrix.
+    #
+    #   This code has been adapted from Brian Dushaw's matlab scripts
+    #   obtained from http://909ers.apl.washington.edu/~dushaw/tidegui/tidegui.html
+    #
+    #function [uamp,uphase,vamp,vphase,hamp,hphase]=get_components(YEAR,omegat,lun_node,v0u,AG)
+    """
+
+    import tide_consts as tc
+
+    #oneday=np.array( [335.62,  0,  322.55,  1.97,   334.63,  0.99,  -0.99,  321.57])
+    oneday = {'M2':335.62, 'S2':0, 'N2':322.55, 'K2':1.97, 'O1':334.63, 'K1':0.99, 'P1':-0.99, 'Q1':321.57}
+    #if year < 1970 or year > 2037:
+    #    print 'Constants for prediction year are not available'
             #return None
-        
-        # Find the index
-        JJ=[]
-        od=np.zeros((len(conlist),1))
-        for ii,vv in enumerate(conlist):
-            
-            jj=[item for item in range(len(tc.const_names)) if tc.const_names[item] == vv]
-            if len(jj) > 0:
-                JJ.append(jj)
-                
-            if oneday.has_key(vv):
-                od[ii]=(np.pi/180)*oneday[vv]
-                  
-        I = int( np.where(year==tc.years)[0] )
-        vou=tc.v0u[JJ,I]
-        lunnod=tc.lun_nodes[JJ,I]
-                
-        vou=(np.pi/180)*vou
-        
-        
-        #oneday=(np.pi/180)*oneday
-        
-        hamp = amp*lunnod
-        #hphase = - oneday[JJ] + vou[JJ] - G
-        hphase =  -od + vou - phase
 
-        return hamp, hphase
-    
+    # Find the index
+    JJ=[]
+    od=np.zeros((len(conlist),1))
+    for ii,vv in enumerate(conlist):
+
+        jj=[item for item in range(len(tc.const_names)) if tc.const_names[item] == vv]
+        if len(jj) > 0:
+            JJ.append(jj)
+
+        if vv in oneday:
+            od[ii]=(np.pi/180)*oneday[vv]
+
+    I = int( np.where(year==tc.years)[0] )
+    vou=tc.v0u[JJ,I]
+    lunnod=tc.lun_nodes[JJ,I]
+
+    vou=(np.pi/180)*vou
+
+
+    #oneday=(np.pi/180)*oneday
+
+    hamp = amp*lunnod
+    #hphase = - oneday[JJ] + vou[JJ] - G
+    hphase =  -od + vou - phase
+
+    return hamp, hphase
+
 def read_OTPS_UV(uvfile,ic):
     """
     Reads the tidal transport constituent data from an otis binary file
-    
+
     ic = constituent number
-    
+
     Returns: X, Y, h_re and h_im (Real and imaginary components)
-    
+
     See this post on byte ordering
          http://stackoverflow.com/questions/1632673/python-file-slurp-w-endian-conversion
     """
@@ -400,37 +400,37 @@ def read_OTPS_UV(uvfile,ic):
     nm = np.fromfile(f,dtype=np.int32,count=3)
     th_lim = np.fromfile(f,dtype=np.float32,count=2)
     ph_lim = np.fromfile(f,dtype=np.float32,count=2)
-    
+
     # Need to go from little endian to big endian
     ll.byteswap(True)
     nm.byteswap(True)
     th_lim.byteswap(True)
     ph_lim.byteswap(True)
-    
+
     n = nm[0]
     m = nm[1]
     nc = nm[2]
-    
+
     if ic < 1 or ic > nc:
-        raise Exception,'ic must be > 1 and < %d'%ic
-    
+        raise Exception('ic must be > 1 and < %d'%ic)
+
     # Read the actual data
     nskip = (ic-1)*(nm[0]*nm[1]*16+8) + 8 + ll - 28
     f.seek(nskip,1)
-    
+
     htemp = np.fromfile(f,dtype=np.float32,count=4*n*m)
     htemp.byteswap(True)
-    
+
     f.close()
-    
+
     htemp = np.reshape(htemp,(m,4*n))
     U_re = htemp[:,0:4*n-3:4]
     U_im = htemp[:,1:4*n-2:4]
     V_re = htemp[:,2:4*n-1:4]
     V_im = htemp[:,3:4*n:4]
-        
+
     X,Y = np.meshgrid(np.linspace(th_lim[0],th_lim[1],n),np.linspace(ph_lim[0],ph_lim[1],m))
-    
+
     return X, Y, U_re, U_im, V_re, V_im
 
 def read_OTPS_grd(grdfile):
@@ -438,7 +438,7 @@ def read_OTPS_grd(grdfile):
     Reads the grid data from an otis binary file
 
     Returns: X, Y, hz, mask
-    
+
     See this post on byte ordering
          http://stackoverflow.com/questions/1632673/python-file-slurp-w-endian-conversion
     """
@@ -451,49 +451,49 @@ def read_OTPS_grd(grdfile):
     lats = np.fromfile(f,dtype=np.float32,count=2)
     lons = np.fromfile(f,dtype=np.float32,count=2)
     dt = np.fromfile(f,dtype=np.float32,count=1)
-    
+
     n.byteswap(True)
     m.byteswap(True)
     lats.byteswap(True)
     lons.byteswap(True)
     dt.byteswap(True)
-    
+
     nob = np.fromfile(f,dtype=np.int32,count=1)
     nob.byteswap(True)
-    if nob == 0: 
-       f.seek(20,1)
-       iob = []
+    if nob == 0:
+        f.seek(20,1)
+        iob = []
     else:
-       f.seek(8,1)
-       iob = np.fromfile(f,dtype=np.int32,count=2*nob)
-       iob.byteswap(True)
-       iob = np.reshape(iob,(2,nob))
-       f.seek(8,1)
-    
+        f.seek(8,1)
+        iob = np.fromfile(f,dtype=np.int32,count=2*nob)
+        iob.byteswap(True)
+        iob = np.reshape(iob,(2,nob))
+        f.seek(8,1)
+
     hz = np.fromfile(f,dtype=np.float32,count=n*m)
     f.seek(8,1)
     mask = np.fromfile(f,dtype=np.int32,count=n*m)
-    
+
     hz.byteswap(True)
     mask.byteswap(True)
-    
+
     hz = np.reshape(hz,(m,n))
     mask = np.reshape(mask,(m,n))
-    
+
     f.close()
-    
+
     X,Y = np.meshgrid(np.linspace(lons[0],lons[1],n),np.linspace(lats[0],lats[1],m))
-    
+
     return X, Y ,hz, mask
 
 def read_OTPS_h(hfile,ic):
     """
     Reads the elevation constituent data from an otis binary file
-    
+
     ic = constituent number
-    
+
     Returns: X, Y, h_re and h_im (Real and imaginary components)
-    
+
     See this post on byte ordering
          http://stackoverflow.com/questions/1632673/python-file-slurp-w-endian-conversion
     """
@@ -504,37 +504,37 @@ def read_OTPS_h(hfile,ic):
     nm = np.fromfile(f,dtype=np.int32,count=3)
     th_lim = np.fromfile(f,dtype=np.float32,count=2)
     ph_lim = np.fromfile(f,dtype=np.float32,count=2)
-    
+
     # Need to go from little endian to big endian
     ll.byteswap(True)
     nm.byteswap(True)
     th_lim.byteswap(True)
     ph_lim.byteswap(True)
-    
+
     n = nm[0]
     m = nm[1]
     nc = nm[2]
-    
+
     if ic < 1 or ic > nc:
-        raise Exception,'ic must be > 1 and < %d'%ic
+        raise Exception('ic must be > 1 and < %d'%ic)
         #return -1
-    
+
     # Read the actual data
     nskip = (ic-1)*(nm[0]*nm[1]*8+8) + 8 + ll - 28
     f.seek(nskip,1)
-    
+
     htemp = np.fromfile(f,dtype=np.float32,count=2*n*m)
     htemp.byteswap(True)
-    
+
     #
     f.close()
-    
+
     htemp = np.reshape(htemp,(m,2*n))
     h_re = htemp[:,0:2*n-1:2]
     h_im = htemp[:,1:2*n:2]
-    
+
     X,Y = np.meshgrid(np.linspace(th_lim[0],th_lim[1],n),np.linspace(ph_lim[0],ph_lim[1],m))
-    
+
     return X ,Y, h_re, h_im
 
 
@@ -544,36 +544,36 @@ def get_OTPS_constits(hfile):
     """
     f = open(hfile,'rb')
     ll = np.fromfile(f,dtype=np.int32,count=1)
-    nm = np.fromfile(f,dtype=np.int32,count=3)  
-    
+    nm = np.fromfile(f,dtype=np.int32,count=3)
+
     ll.byteswap(True)
     nm.byteswap(True)
-    
+
     f.close()
-    
+
     ncon = nm[2]
-    conList = []    
+    conList = []
     for ii in range(1,ncon+1):
         for vv in otis_constits:
             if otis_constits[vv]['index']==ii:
                 conList.append(vv)
-                
+
     return conList
-  
+
 def cart2pol(re,im):
-    
+
     amp = np.abs(re + 1j*im)
     phs = np.angle(re + 1j*im)
-    
+
     return amp, phs
-    
+
 def pol2cart(amp,phs):
-    
+
     re = amp * np.cos(phs)
     im = amp * np.sin(phs)
-    
+
     return re, im
- 
+
 def astrol(time):
     """
     %function  [s,h,p,N]=astrol(time);
@@ -606,9 +606,9 @@ def astrol(time):
     h = mod(h,circle);
     p = mod(p,circle);
     N = mod(N,circle);
-    
+
     """
-    
+
     circle=360;
     T = time - 51544.4993;
     # mean longitude of moon
@@ -628,32 +628,32 @@ def astrol(time):
     h = np.mod(h,circle);
     p = np.mod(p,circle);
     N = np.mod(N,circle);
-    
+
     return s,h,p,N
-    
-    
+
+
 def nodal(time,con):
     """
-    Nodal correction 
-    
+    Nodal correction
+
     Derived from the tide model driver matlab scipt: nodal.m
     """
-    
+
     rad = np.pi/180.0
-    
+
     s,h,p,omega=astrol(time)
 
-    #    
-    #    omega = 
     #
-    #     determine nodal corrections f and u 
+    #    omega =
+    #
+    #     determine nodal corrections f and u
     #     -----------------------------------
     sinn = np.sin(omega*rad);
     cosn = np.cos(omega*rad);
     sin2n = np.sin(2*omega*rad);
     cos2n = np.cos(2*omega*rad);
     sin3n = np.sin(3*omega*rad);
-    
+
     ndict={'M2':{'f':np.sqrt((1.-.03731*cosn+.00052*cos2n)**2 + (.03731*sinn-.00052*sin2n)**2),\
         'u':np.arctan((-.03731*sinn+.00052*sin2n)/(1.-.03731*cosn+.00052*cos2n))/rad},\
         'S2':{'f':1.0, 'u':0.0},\
@@ -668,7 +668,7 @@ def nodal(time,con):
             'u':np.arctan(-(.3108*sinn+.0324*sin2n) /(1.+.2852*cosn+.0324*cos2n))/rad},\
         'Q1':{'f':np.sqrt((1.+.188*cosn)**2+(.188*sinn)**2),\
             'u':np.arctan(.189*sinn / (1.+.189*cosn))/rad} }
-            
+
     # Prepare the output data
     ncon = len(con)
     try:
@@ -679,17 +679,17 @@ def nodal(time,con):
     pf = np.ones((ncon,nt))
     v0u = np.zeros((ncon,nt))
     for ii,vv in enumerate(con):
-        if ndict.has_key(vv):
+        if vv in ndict:
             pu[ii,:] = ndict[vv]['u']*rad
             pf[ii,:] = ndict[vv]['f']
-            
-        if otis_constits.has_key(vv):
+
+        if vv in otis_constits:
             v0u[ii,:] = otis_constits[vv]['v0u']
-     
+
     return pu, pf, v0u
-            
-            
-    
+
+
+
 #%%
 #f=zeros(nT,53);
 #f(:,1) = 1;                                     % Sa
@@ -817,8 +817,8 @@ def nodal(time,con):
 #u(:,50) = u(:,30)*3;                               % M6
 #u(:,51) = 0;                                       % S6
 #u(:,52) = 0;                                       % S7
-#u(:,53) = 0;                                       % S8 
-### 
+#u(:,53) = 0;                                       % S8
+###
 # Testing
 ###
 

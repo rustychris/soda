@@ -44,12 +44,12 @@ class NoSuchCellError(TriGridError):
 
 class HybridGrid(object):
     """
-    Class for dealing with grids that have cells with an 
+    Class for dealing with grids that have cells with an
     arbitrary number of sides.
-    
-    
+
+
     """
-    
+
     _pnt2cells = None
     _pnt2edges = None
 
@@ -71,7 +71,7 @@ class HybridGrid(object):
     def __init__(self,xp,yp,cells,**kwargs):
 
         self.__dict__.update(**kwargs)
-        
+
         self.xp = xp
         self.yp = yp
         self.cells=cells
@@ -90,7 +90,7 @@ class HybridGrid(object):
 
         # Make sure the inputs are ndarrays
         self.check_inputs()
-            
+
         # Get the edges
         if self.edges is None or self.grad is None:
             self.make_edges_from_cells()
@@ -127,7 +127,7 @@ class HybridGrid(object):
                 self.make_neigh_from_cells()
             else:
                 self.neigh=self.neigh
-            
+
             if self.xv is None:
                 self.calc_centroids()
             else:
@@ -148,20 +148,20 @@ class HybridGrid(object):
             #self.calc_tangent()
             self.calc_Aj()
 
-        
-     
+
+
     ###################################
     # Geometry functions
     ###################################
     def calc_centroids(self):
         """
         Calculate the centroid coordinates of each cell
-        
+
         This needs to be done differently depending on geometry
          - Triangles : use circumcenter
          - Quads : calculate circumcenter of two triangles and take geometric mean
          - Other : mid-point (average coordinate)
-        """ 
+        """
         xp = np.array(self.xp)
         yp = np.array(self.yp)
 
@@ -171,73 +171,73 @@ class HybridGrid(object):
         self._yvb = np.zeros((self.Nc,))
         self.xc = np.zeros((self.Nc,))
         self.yc = np.zeros((self.Nc,))
-        
+
         self.xca = np.zeros((self.Nc,))
         self.yca = np.zeros((self.Nc,))
-        
+
         for N in range(3,self.MAXFACES+1):
             ind = self.nfaces==N
             cells = self.cells[ind,0:N]
-            
+
             #xtmp,ytmp = centroid(xp[cells],yp[cells],N)
             if N ==3:
                 # Use the circumcenter for triangles
                 xtmp,ytmp = circumcenter(xp[cells[:,0]],yp[cells[:,0]],\
                     xp[cells[:,1]],yp[cells[:,1]],xp[cells[:,2]],yp[cells[:,2]])
-                    
+
                 xtmpa = xtmp
                 ytmpa = ytmp
-                #self.xca[ind],self.yca[ind]  = centroid(xp[cells[:,0:N]],yp[cells[:,0:N]],N) 
+                #self.xca[ind],self.yca[ind]  = centroid(xp[cells[:,0:N]],yp[cells[:,0:N]],N)
                 # Triangle just use circumcenter
                 self.xca[ind] = xtmp
                 self.yca[ind] = ytmp
-                
+
             elif N == 4:
                 xtmp1,ytmp1 = circumcenter(xp[cells[:,0]],yp[cells[:,0]],\
                     xp[cells[:,1]],yp[cells[:,1]],xp[cells[:,2]],yp[cells[:,2]])
                 xtmp2,ytmp2 = circumcenter(xp[cells[:,0]],yp[cells[:,0]],\
                     xp[cells[:,2]],yp[cells[:,2]],xp[cells[:,3]],yp[cells[:,3]])
-                    
-                xtmp = np.sqrt(xtmp1*xtmp2)                
+
+                xtmp = np.sqrt(xtmp1*xtmp2)
                 ytmp = np.sqrt(ytmp1*ytmp2)
-                
+
                 xtmp1,ytmp1 = circumcenter(xp[cells[:,1]],yp[cells[:,1]],\
                     xp[cells[:,2]],yp[cells[:,2]],xp[cells[:,3]],yp[cells[:,3]])
                 xtmp2,ytmp2 = circumcenter(xp[cells[:,3]],yp[cells[:,3]],\
                     xp[cells[:,0]],yp[cells[:,0]],xp[cells[:,1]],yp[cells[:,1]])
-                    
-                xtmpa = np.sqrt(xtmp1*xtmp2)                
+
+                xtmpa = np.sqrt(xtmp1*xtmp2)
                 ytmpa = np.sqrt(ytmp1*ytmp2)
-                
-                self.xca[ind],self.yca[ind]  = centroid(xp[cells[:,0:N]],yp[cells[:,0:N]],N) 
-                
+
+                self.xca[ind],self.yca[ind]  = centroid(xp[cells[:,0:N]],yp[cells[:,0:N]],N)
+
             else:
                 xtmp = xp[cells].mean(axis=-1)
                 ytmp = yp[cells].mean(axis=-1)
-                
+
                 xtmpa = xtmp
                 ytmpa = ytmp
-                
+
                 self.xca[ind],self.yca[ind]  = centroid(xp[cells[:,0:N]],yp[cells[:,0:N]],N)
-                
-                
+
+
             self._xva[ind] = xtmp
             self._yva[ind] = ytmp
-            
+
             self._xvb[ind] = xtmpa
             self._yvb[ind] = ytmpa
-            
+
             # Save centroids in xc,yc attributes
             self.xc[ind] = xp[cells].mean(axis=-1)
             self.yc[ind] = yp[cells].mean(axis=-1)
-            
+
         ####
         # Option 1) use the most orthogonal mid-point
         ####
 #        # Check the orthogonality of each of the alternative mid-points
 #        ang1 = self.check_orthogonality(self._xva,self._yva)
 #        ang2 = self.check_orthogonality(self._xvb,self._yvb)
-#        
+#
 #        # Now go through and decide which point to use based on orthogonality
 #        self.orthog = np.zeros((self.Nc,))
 #        self.xv = np.zeros((self.Nc,))
@@ -251,46 +251,46 @@ class HybridGrid(object):
 #                self.orthog[i]=ang2[i]
 #                self.xv[i]=self._xvb[i]
 #                self.yv[i]=self._yvb[i]
-                
+
         ####
         # Option 2) Use the area centroid (circumcenter for triangles)
-        ### 
+        ###
         self.xv = self.xca.copy()
         self.yv = self.yca.copy()
-                
+
 
     def calc_area(self):
         """
         Calculates the area of each cell
         """
-        
+
         Ac = np.zeros((self.Nc,))
-        
+
         #for ii in range(self.Nc):
         #     nf = self.nfaces[ii]
         #     Ac[ii] = polyarea(self.xp[self.cells[ii,0:nf]],
-        #        self.yp[self.cells[ii,0:nf]],nf)            
+        #        self.yp[self.cells[ii,0:nf]],nf)
 
         for N in range(3,self.MAXFACES+1):
             ind = self.nfaces==N
             cells = self.cells[ind,0:N]
-            Ac[ind] = polyarea(self.xp[cells[:,0:N]],self.yp[cells[:,0:N]],N)            
-            #Ac[ind] = signed_area(xp[cells[:,0:N]],yp[cells[:,0:N]],N)       
-        
+            Ac[ind] = polyarea(self.xp[cells[:,0:N]],self.yp[cells[:,0:N]],N)
+            #Ac[ind] = signed_area(xp[cells[:,0:N]],yp[cells[:,0:N]],N)
+
         return Ac
-    
+
     def ensure_ccw(self):
         """
         Ensure that the nodes are rotated counter-clockwise
         """
-	###
-	# Cython wrapper
-	###
+        ###
+        # Cython wrapper
+        ###
         ugridutils.ensure_ccw(self.cells, self.nfaces, self.Ac)
-	
-	#####
-	## Pure python version
-	#####
+
+        #####
+        ## Pure python version
+        #####
         ##Ac = self.calc_area()
         ##cells_ccw = np.zeros_like(self.cells)
         #for i in range(self.Nc):
@@ -302,9 +302,9 @@ class HybridGrid(object):
         #        self.cells[i,0:self.nfaces[i]] =  ctmp
         #
         ##return cells_ccw
-    
+
     def edge_centers(self):
-        
+
         xp = np.array(self.xp)
         yp = np.array(self.yp)
 
@@ -316,7 +316,7 @@ class HybridGrid(object):
 
         nc1[nc1<0]=nc2[nc1<0]
 
-        # Edge coordiainte is the intersection of the voronoi edge 
+        # Edge coordiainte is the intersection of the voronoi edge
         # and Delaunay edge
         tx = self.xp[p2] - self.xp[p1] # Order ensure t is CCW
         ty = self.yp[p2] - self.yp[p1]
@@ -333,14 +333,14 @@ class HybridGrid(object):
         self.tx = tx
         self.ty = ty
 
-        
+
         # Assume edge is at the mid-point
         #self.xe = 0.5 * (xp[self.edges[:,0]] + xp[self.edges[:,1]])
         #self.ye = 0.5 * (yp[self.edges[:,0]] + yp[self.edges[:,1]])
 
     def calc_Aj(self):
         """
-        Calculate the area of the triangle made up of the lines between 
+        Calculate the area of the triangle made up of the lines between
         the two edge nodes and the Voronoi point
 
         Assumes orthogonality
@@ -351,7 +351,7 @@ class HybridGrid(object):
         face = self.face.copy()
         cellmask = self.face==self._FillValue
         face[cellmask]=0
-        
+
         de1 = dist(self.xp[p1],self.xe,self.yp[p1],self.ye)
         de2 = dist(self.xp[p2],self.xe,self.yp[p2],self.ye)
 
@@ -364,7 +364,7 @@ class HybridGrid(object):
         """
         Manually calculate the distance between voronoi points, 'dg'
         """
-        
+
         #grad = self.grad.copy()
         #Ne = self.Nedges()
 
@@ -373,8 +373,8 @@ class HybridGrid(object):
         #        grad[ii,0]=grad[ii,1]
         #    elif grad[ii,1]==-1:
         #        grad[ii,1]=grad[ii,0]
-                
-                
+
+
         x1 = self.xv[self.grad[:,0]]
         x2 = self.xv[self.grad[:,1]]
         y1 = self.yv[self.grad[:,0]]
@@ -399,7 +399,7 @@ class HybridGrid(object):
     def calc_def(self):
         """
         Calculate the edge to face(cell) distance
-        
+
         dimensions: Nc x maxfaces
         """
         #ne = np.array(self.face)
@@ -417,7 +417,7 @@ class HybridGrid(object):
         maxfaces = self.nfaces.max()
 
         self.DEF = np.zeros((Nc,maxfaces))
-        
+
         for i in range(Nc):
             nf = self.nfaces[i]
             for n in range(nf):
@@ -429,7 +429,7 @@ class HybridGrid(object):
                 self.DEF[i,n] = dist(self.xv[i],self.xe[ne],\
                     self.yv[i],self.ye[ne])
 
-                
+
 
     def calc_dfe(self):
         """
@@ -469,7 +469,7 @@ class HybridGrid(object):
         y1[ind2] = self.yv[self.grad[ind2,0]]
 
         self.dfe[:,1] = dist(x1,x2,y1,y2)
- 
+
 
 
     def calc_df(self):
@@ -487,20 +487,20 @@ class HybridGrid(object):
 
         NOT USED - calculated in self.edge_centers()
         """
-        dx = np.zeros(self.cells.shape)    
-        dy = np.zeros(self.cells.shape)  
+        dx = np.zeros(self.cells.shape)
+        dy = np.zeros(self.cells.shape)
 
-        dx[:,0:-1] = self.xp[self.cells[:,1::]] - self.xp[self.cells[:,0:-1]]               
-        dy[:,0:-1] = self.yp[self.cells[:,1::]] - self.yp[self.cells[:,0:-1]]               
+        dx[:,0:-1] = self.xp[self.cells[:,1::]] - self.xp[self.cells[:,0:-1]]
+        dy[:,0:-1] = self.yp[self.cells[:,1::]] - self.yp[self.cells[:,0:-1]]
 
         for ii in range(self.Nc):
             dx[ii,self.nfaces[ii]-1] = self.xp[self.cells[ii,0]] -\
-                self.xp[self.cells[ii,self.nfaces[ii]-1]]  
+                self.xp[self.cells[ii,self.nfaces[ii]-1]]
             dy[ii,self.nfaces[ii]-1] = self.yp[self.cells[ii,0]] -\
-                self.yp[self.cells[ii,self.nfaces[ii]-1]]  
+                self.yp[self.cells[ii,self.nfaces[ii]-1]]
 
         mag = np.sqrt(dx*dx + dy*dy)
-        
+
         self.tx = dx/mag
         self.ty = dy/mag
 
@@ -518,7 +518,7 @@ class HybridGrid(object):
         dy = self.yp[self.edges[:,1]] - self.yp[self.edges[:,0]]
 
         mag = np.sqrt(dx*dx + dy*dy)
-        
+
         self.n1 = -dy/mag
         self.n2 = dx/mag
 
@@ -563,7 +563,7 @@ class HybridGrid(object):
         Nc = self.Ncells()
 
         self.normal=np.zeros((Nc,self.MAXFACES))
-        
+
         for ii in range(Nc):
             for nf in range(self.nfaces[ii]):
                 if self.grad[self.face[ii,nf],0]==ii:
@@ -571,77 +571,77 @@ class HybridGrid(object):
                 else:
                     self.normal[ii,nf]=1
 
-        
+
     def make_edges_from_cells_sparse(self):
         """
         Utilize sparse matrices to find the unique edges
-        
-        This is slower than make_edges_from_cells() but is more robust for 
-        hybrid grid types. 
+
+        This is slower than make_edges_from_cells() but is more robust for
+        hybrid grid types.
         """
         A = sparse.lil_matrix((self.Npoints(),self.Npoints()))
         Vp1 = sparse.lil_matrix((self.Npoints(),self.Npoints()))
         Vp2 = sparse.lil_matrix((self.Npoints(),self.Npoints()))
-        
+
         for i in range(self.Ncells()):
 
             for j in range(self.nfaces[i]):
 
                 p1 = self.cells[i,j]
                 p2 = self.cells[i,(j+1)%self.nfaces[i]]
-                
+
                 if A[p1,p2]==0:
                     Vp1[p1,p2] = i
                     Vp1[p2,p1] = i
                 else:
                     Vp2[p1,p2] = i
                     Vp2[p2,p1] = i
-                
+
                 # Graph is undirected so should be symmetric
                 A[p1,p2] += 1.0
                 A[p2,p1] += 1.0
-    
+
         I,J,V = sparse.find(A)
         Ne = I.shape[0]
         #edges = [[I[k], J[k], A[I[k], J[k]]!=2, Vp1[I[k], J[k]]-1,Vp2[I[k], J[k]]-1] for k in range(Ne) if I[k]<=J[k]]
         edges = [[I[k], J[k], A[I[k], J[k]]!=2, Vp1[I[k], J[k]],Vp2[I[k], J[k]]] for k in range(Ne) if I[k]<=J[k]]
-        
+
         edges = np.array(edges,dtype=int)
         Ne = edges.shape[0]
         self.edges = np.array([edges[ii,0:2] for ii in range(Ne)])
         self.mark = np.array([edges[ii,2] for ii in range(Ne)])
         self.grad = np.array([edges[ii,3:5] for ii in range(Ne)])
-        
+
         # Now go back and set grad[2] = -1 for boundary cells
         for k in range(Ne):
             if self.mark[k]==1 and self.grad[k,1]==0:
                 self.grad[k,1]=-1
-    
+
     def check_orthogonality(self,xv,yv):
         """
         Checks the orthogonality of the grid cells with index 'cell' and mid-points
         'xv, yv'
-        
-        Returns the maximum deviation from 90 degrees of each line connecting the 
+
+        Returns the maximum deviation from 90 degrees of each line connecting the
         edge point to the cell mid-point
         """
         if self.VERBOSE:
-            print 'calculating orthogonality...'
+            print('calculating orthogonality...')
         nc = xv.shape[0]
         orthoang = np.zeros((nc,))
         pi_on_2 = 0.5*np.pi
-        
+
         for i in range(nc):
-            
+
             maxangle = 0.0
             for j in range(self.nfaces[i]):
                 # Find the two node values
                 pnt_a = self.cells[i,j]
                 pnt_b =self.cells[i,(j+1)%self.nfaces[j]]
-                
+
                 # Find the edge index
                 edg = self.find_edge([pnt_a,pnt_b])
-                
+
                 # Create a two lines and find the angle between them
                 P0 = Point(self.xe[edg],self.ye[edg])
                 #P1a = Point(self.xp[pnt_a],self.yp[pnt_a])
@@ -653,11 +653,11 @@ class HybridGrid(object):
                 ang = np.abs(pi_on_2 - L1.angle(L2))
                 if ang > maxangle:
                     maxangle=ang
-                    
+
             orthoang[i]=maxangle
-        
+
         return orthoang
-        
+
     ###########################
     # Input output functions
     ###########################
@@ -667,7 +667,7 @@ class HybridGrid(object):
         """
         from netCDF4 import Dataset
         from soda.dataio.suntans.suntans_ugrid import ugrid
-        
+
         nc = Dataset(outfile, 'w', format='NETCDF4_CLASSIC')
         nc.Description = 'Unstructured grid file'
         nc.Author = ''
@@ -678,41 +678,41 @@ class HybridGrid(object):
         try:
             nc.createDimension('Ne', self.Ne)
         except:
-            print 'No dimension: Ne'
+            print('No dimension: Ne')
         nc.createDimension('Nk', self.Nkmax)
         nc.createDimension('Nkw', self.Nkmax+1)
         nc.createDimension('numsides', self.MAXFACES)
         nc.createDimension('two', 2)
         nc.createDimension('time', 0) # Unlimited
-        
+
         # Write the grid variables
         def write_nc_var(var, name, dimensions, attdict, dtype='f8'):
             tmp=nc.createVariable(name, dtype, dimensions)
-            for aa in attdict.keys():
+            for aa in list(attdict.keys()):
                 tmp.setncattr(aa,attdict[aa])
             nc.variables[name][:] = var
-    
+
         gridvars = ['suntans_mesh','cells','face','nfaces',\
              'edges','neigh','grad','xp','yp','xv','yv','xe','ye',\
             'normal','n1','n2','df','dg','def',\
             'Ac','dv','dz','z_r','z_w','Nk','Nke','mark']
-        
+
         self.Nk += 1 # Set to one-base in the file (reset to zero-base after)
-        self.suntans_mesh=[0]  
+        self.suntans_mesh=[0]
         for vv in gridvars:
-            if self.__dict__.has_key(vv):
+            if vv in self.__dict__:
                 if self.VERBOSE:
-                    print 'Writing variables: %s'%vv
+                    print('Writing variables: %s'%vv)
 
                 write_nc_var(self[vv],vv,\
                         ugrid[vv]['dimensions'],\
                         ugrid[vv]['attributes'],\
                         dtype=ugrid[vv]['dtype'])
-            
+
             # Special treatment for "def"
-            if vv == 'def' and self.__dict__.has_key('DEF'):
+            if vv == 'def' and 'DEF' in self.__dict__:
                 if self.VERBOSE:
-                    print 'Writing variables: %s'%vv
+                    print('Writing variables: %s'%vv)
                 write_nc_var(self['DEF'],vv,ugrid[vv]['dimensions'],\
                         ugrid[vv]['attributes'],\
                         dtype=ugrid[vv]['dtype'])
@@ -727,64 +727,64 @@ class HybridGrid(object):
         """
         ### Save cells.dat into hybrid grid format
         f = open(suntanspath+'/cells.dat','w')
-    
+
         for ii in range(self.Ncells()):
             outstr = '%d %10.6f %10.6f '%(self.nfaces[ii],self.xv[ii],self.yv[ii])
             for nn in range(self.nfaces[ii]):
                 outstr += '%d '%self.cells[ii,nn]
-    
+
             for nn in range(self.nfaces[ii]):
                 outstr += '%d '%self.neigh[ii,nn]
-    
+
             outstr += '\n'
             f.write(outstr)
-        
+
         f.close()
-        
+
         # Save edges.dat
         f = open(suntanspath+'/edges.dat','w')
-    
+
         for ee,m,gg in zip(self.edges,self.mark,self.grad):
             e1=ee[0]
             e2=ee[1]
             g1=gg[0]
             g2=gg[1]
             f.write('%d %d  %d  %d  %d  0\n'%(e1,e2,m,g1,g2))
-    
+
         f.close()
-        
+
         # Save to points.dat
         f = open(suntanspath+'/points.dat','w')
-    
+
         for x,y in zip(self.xp,self.yp):
             f.write('%10.6f %10.6f  0\n'%(x,y))
-    
+
         f.close()
         #print 'Completed gmsh to suntans conversion.'
-        
+
     def create_dual_grid(self,minfaces=3,outpath=None):
         """
-        Create a new grid using the dual of the current grid. 
-        
+        Create a new grid using the dual of the current grid.
+
         Returns a new hybridgrid object. Set outpath to save directly to a suntans
         grid.
         """
         # Locate the points forming each cell
-        
+
         # The centre points are now the nodes
         xp = self.xv
         yp = self.yv
-        
+
         # ...and the nodes are now the centre point
         xv = self.xp
         yv = self.yp
-        
+
         # Find the number of faces of each cell
         Np = self.Npoints()
         nfaces = np.array([len(self.pnt2cells(ii)) for ii in range(Np)])
-        
+
         maxfaces = nfaces.max()
-        
+
         # Reorder the nodes into anti-clockwise order
         def reordercells(ii):
             cell = np.array(list(self.pnt2cells(ii)))
@@ -792,20 +792,20 @@ class HybridGrid(object):
             xy = np.array([xp[cell],yp[cell]])
             # calculate the angles from the centre point and sort them
             ang = np.arctan2(xy[0,:]-xv[ii],xy[1,:]-yv[ii])
-            
+
             order = np.argsort(ang)
-            
+
             return cell[order]
-            
-        cells_list = map(reordercells,range(Np))
-        
+
+        cells_list = list(map(reordercells,list(range(Np))))
+
         cells = -1*np.ones((Np,maxfaces),np.int)
         for ii in range(Np):
             cells[ii,0:nfaces[ii]]=cells_list[ii]
-            
+
         # Now remove cells with less than 'minfaces' points
         ind = nfaces>=minfaces
-        
+
         cells = cells[ind,:]
         nfaces =  nfaces[ind]
         xv = xv[ind]
@@ -815,10 +815,10 @@ class HybridGrid(object):
         #self.delete_unused_nodes()
 
         dualgrd = HybridGrid(xp,yp,cells,nfaces=nfaces,xv=xv,yv=yv)
-        
+
         if not outpath is None:
             dualgrd.write2suntans(outpath)
-            
+
         return dualgrd
 
     def to_metismesh(self):
@@ -836,7 +836,7 @@ class HybridGrid(object):
 
         pt1 = 0
         for i in range(self.Nc):
-            nf = self.nfaces[i] 
+            nf = self.nfaces[i]
             pt2 = pt1+nf
             eind[pt1:pt2] = self.cells[i,0:nf]
             pt1 = pt2+0.
@@ -858,25 +858,25 @@ class HybridGrid(object):
         xadj[1:] = np.cumsum(nneigh)
 
         return xadj.astype(np.int32), adjncy.astype(np.int32)
- 
 
 
-             
+
+
     ######################
     # TriGrid functions  #
     # (with adjustments) #
     ######################
     def make_edges_from_cells(self):
-	###
-	# Cython version
-	###
-	self.pnt2cells(0)
-	self.edges, self.mark, self.grad = \
-		ugridutils.make_edges_from_cells(self.cells,
-			self.nfaces, self._pnt2cells)
-	###
-	# Pure python
-	###
+        ###
+        # Cython version
+        ###
+        self.pnt2cells(0)
+        self.edges, self.mark, self.grad = \
+                ugridutils.make_edges_from_cells(self.cells,
+                        self.nfaces, self._pnt2cells)
+        ###
+        # Pure python
+        ###
         ## iterate over cells, and for each cell, if it's index
         ## is smaller than a neighbor or if no neighbor exists,
         ## write an edge record
@@ -901,8 +901,8 @@ class HybridGrid(object):
         #        #pnt_b = self.cells[i,(j+1)%3]
         #        #pnt_b = self.cells[i,(j+1)%self.MAXFACES]
         #        pnt_b = self.cells[i,(j+1)%self.nfaces[i]]
-        #        
-        #            
+        #
+        #
         #        adj1 = self.pnt2cells(pnt_a) # cells that use pnt_a
         #        adj2 = self.pnt2cells(pnt_b) # cells that use pnt_b
 
@@ -914,7 +914,7 @@ class HybridGrid(object):
         #            n = neighbor.pop()
         #        else:
         #            n = -1
-        #            
+        #
         #        if n==-1 or i<n:
         #            # we get to add the edge:
         #            edges.append((pnt_a,
@@ -928,8 +928,8 @@ class HybridGrid(object):
         #self.edges = np.array([edges[ii,0:2] for ii in range(Ne)])
         #self.mark = np.array([edges[ii,2] for ii in range(Ne)])
         #self.grad = np.array([edges[ii,3:5] for ii in range(Ne)])
-            
-            
+
+
     def calc_markcell(self, mark):
         """
         Calculates the cell-type based on the edge marker
@@ -945,18 +945,18 @@ class HybridGrid(object):
     def check_missing_bcs(self):
         """
         Check for missing BCs
-        """        
+        """
         missing_bcs = (self.mark==0) & (self.grad[:,1]<0)
         n_missing = missing_bcs.sum()
         if any(missing_bcs):
 
             if self.VERBOSE:
-                print "WARNING: %d edges are on the boundary but have marker==0"%n_missing
-                print "Assuming they are closed boundaries!"
+                print("WARNING: %d edges are on the boundary but have marker==0"%n_missing)
+                print("Assuming they are closed boundaries!")
 
             self.mark[missing_bcs] = 1
 
-        
+
     def make_neigh_from_grad(self):
         """
         Find the neighbouring cells from the face and grad arrays
@@ -970,16 +970,16 @@ class HybridGrid(object):
         Find the neighbouring cells
         """
         ###
-	# Cython wrapper
-	###
-	# Make sure the hash table is built
-	self.pnt2cells(0)
-	self.neigh = ugridutils.make_neigh_from_cells(
-		self.cells, self.nfaces, self._pnt2cells)
-	
-	###
+        # Cython wrapper
+        ###
+        # Make sure the hash table is built
+        self.pnt2cells(0)
+        self.neigh = ugridutils.make_neigh_from_cells(
+                self.cells, self.nfaces, self._pnt2cells)
+
+        ###
         # Pure python
-        ###	
+        ###
         #self.neigh = np.zeros((self.Ncells(),self.MAXFACES),np.int)
         #for i in range(self.Ncells()):
         #    # find the neighbors:
@@ -997,38 +997,38 @@ class HybridGrid(object):
         #        neighbor = adj1.intersection(adj2).difference(my_set)
         #        if len(neighbor) == 1:
         #            n[j] = neighbor.pop()
-        #    
+        #
         #    self.neigh[i,0:self.nfaces[i]] = n
-        
+
     def pnt2cells(self,pnt_i):
         if self._pnt2cells is None:
-	    
-	    # Cython wrapper
-	    self._pnt2cells = ugridutils.create_pnt2cells(
-		self.cells, self.nfaces)
-	    ###
-	    # Pure python
-	    ###	
+
+            # Cython wrapper
+            self._pnt2cells = ugridutils.create_pnt2cells(
+                self.cells, self.nfaces)
+            ###
+            # Pure python
+            ###
             ## build hash table for point->cell lookup
             #self._pnt2cells = {}
             #for i in range(self.Ncells()):
             #    #for j in range(self.MAXFACES):
             #    for j in range(self.nfaces[i]):
-	    #        cc = self.cells[i,j]
+            #        cc = self.cells[i,j]
             #        if not self._pnt2cells.has_key(cc):
             #            self._pnt2cells[cc] = set()
             #        self._pnt2cells[cc].add(i)
 
         # This accounts for unconnected points
-        if self._pnt2cells.has_key(pnt_i):
+        if pnt_i in self._pnt2cells:
             return self._pnt2cells[pnt_i]
         else:
             return []
-        
+
     def cell2edges(self,cell_i):
         if self.cells[cell_i,0] == -1:
             raise "cell %i has been deleted"%cell_i
-        
+
         # return indices to the three edges for this cell:
         pnts = self.cells[cell_i] # the vertices
 
@@ -1049,18 +1049,18 @@ class HybridGrid(object):
 
         N.B. this is not kept up to date when modifying the grid.
         """
-	# Cython
-	if self._pnt2edges is None:
-	   self._pnt2edges = ugridutils.create_pnt2edges(self.edges, 
-	   	self.mark, DELETED_EDGE)
+        # Cython
+        if self._pnt2edges is None:
+            self._pnt2edges = ugridutils.create_pnt2edges(self.edges,
+                 self.mark, DELETED_EDGE)
 
-	self._cell_edge_map = ugridutils.cell_edge_map(self.cells,
-		self.nfaces, self._pnt2edges)
+        self._cell_edge_map = ugridutils.cell_edge_map(self.cells,
+                self.nfaces, self._pnt2edges)
 
-	return self._cell_edge_map
-	####
-	# Pure python
-	####
+        return self._cell_edge_map
+        ####
+        # Pure python
+        ####
         #if self._cell_edge_map is None:
         #    cem = 999999*np.ones( (self.Ncells(),self.MAXFACES), np.int32)
 
@@ -1072,7 +1072,7 @@ class HybridGrid(object):
     def pnt2edges(self,pnt_i):
         if self._pnt2edges is None:
             # print "building pnt2edges"
-            
+
             p2e = {}
             for e in range(self.Nedges()):
                 # skip deleted edges
@@ -1080,20 +1080,20 @@ class HybridGrid(object):
 #                    continue
                 if self.mark[e] == DELETED_EDGE:
                     continue
-                
+
                 for p in self.edges[e,:2]:
-                    if not p2e.has_key(p):
+                    if p not in p2e:
                         p2e[p] = []
                     p2e[p].append(e)
             self._pnt2edges = p2e
 
-        if self._pnt2edges.has_key(pnt_i):
+        if pnt_i in self._pnt2edges:
             return self._pnt2edges[pnt_i]
         else:
             return []
-    
+
     def find_edge(self,nodes):
-    
+
         el0 = self.pnt2edges(nodes[0])
         el1 = self.pnt2edges(nodes[1])
         for e in el0:
@@ -1117,7 +1117,7 @@ class HybridGrid(object):
 
         for n in unused:
             self.delete_node(n)
- 
+
     def check_inputs(self):
         """
         Check that the inputs are the right type
@@ -1128,13 +1128,13 @@ class HybridGrid(object):
             val = getattr(self,vv)
             if not val is None:
                 if not isinstance(val, np.ndarray):
-                     print 'converting variable: %s'%vv
-                     valout = np.asarray(val)
-                     setattr(self,vv,valout)
+                    print('converting variable: %s'%vv)
+                    valout = np.asarray(val)
+                    setattr(self,vv,valout)
 
         self.cells = self.cells.astype(np.int32)
         self.nfaces = self.nfaces.astype(np.int64)
-        
+
     def Nedges(self):
         return len(self.edges)
     def Ncells(self):
@@ -1145,62 +1145,62 @@ class HybridGrid(object):
     def __getitem__(self,y):
         x = self.__dict__.__getitem__(y)
         return x
- 
+
 #def signed_area(x,y,N):
 #    i = np.arange(N)
 #    ip1 = (i+1)%(N)
 #    #return 0.5*(points[i,0]*points[ip1,1] - points[ip1,0]*points[i,1]).sum()
 #    return 0.5*(x[...,i]*y[...,ip1] - x[...,ip1]*y[...,i])
-    
+
 
 ###########################
 # Utility functions
 ###########################
-        
+
 def polyarea(x,y,N):
     """
     Calculate the area of an arbitrary side polygon.
-    
+
     Uses the formula here:
         http://www.seas.upenn.edu/~sys502/extra_materials/Polygon%20Area%20and%20Centroid.pdf
     """
-    
+
     A = np.zeros(x.shape[:-1])
     for i in range(N):
         ip1 = (i+1)%(N)
         A += x[...,i]*y[...,ip1] - x[...,ip1]*y[...,i]
-        
+
     return 0.5*A
-    
+
 
 def centroid(x,y,N):
     """
     **NOT USED **
     Calculate the centroid of an arbitrary side polygon.
-    
+
     Uses the formula here:
         http://www.seas.upenn.edu/~sys502/extra_materials/Polygon%20Area%20and%20Centroid.pdf
     """
-    
+
     A = polyarea(x,y,N)
-    
+
     Cx = np.zeros(x.shape[:-1])
     Cy = np.zeros(x.shape[:-1])
     for i in range(N):
         ip1 = (i+1)%(N)
         tmp = x[...,i]*y[...,ip1] - x[...,ip1]*y[...,i]
-        
+
         Cx += (x[...,i]+x[...,ip1])*tmp
         Cy += (y[...,i]+y[...,ip1])*tmp
-        
+
     fac = 1. / (6. * A)
-    
+
     return fac*Cx, fac*Cy
-    
+
 def circumcenter(p1x,p1y,p2x,p2y,p3x,p3y):
     refx = p1x.copy()
     refy = p1y.copy()
-    
+
     p1x -= refx # ==0.0
     p1y -= refy # ==0.0
     p2x -= refx
@@ -1210,49 +1210,49 @@ def circumcenter(p1x,p1y,p2x,p2y,p3x,p3y):
 
     vcx = np.zeros( p1x.shape, np.float64)
     vcy = np.zeros( p1y.shape, np.float64)
-    
+
     # taken from TRANSFORMER_gang.f90
     dd=2.0*((p1x-p2x)*(p1y-p3y) -(p1x-p3x)*(p1y-p2y))
     b1=p1x**2+p1y**2-p2x**2-p2y**2
-    b2=p1x**2+p1y**2-p3x**2-p3y**2 
+    b2=p1x**2+p1y**2-p3x**2-p3y**2
     vcx=(b1*(p1y-p3y)-b2*(p1y-p2y))/dd + refx
     vcy=(b2*(p1x-p2x)-b1*(p1x-p3x))/dd + refy
-    
+
     return vcx,vcy
-    
+
 class Point:
     def __init__(self,x,y):
         self.x = x
         self.y = y
-  
+
 class Line:
     def __init__(self,P1,P2):
         self.x = P2.x - P1.x
         self.y = P2.y - P1.y
-  
+
     def magnitude(self):
         return np.sqrt (self.x**2 + self.y**2)
-    
+
     def unitnormal(self):
         """Finds the units normal vector
         """
         return -self.y/self.magnitude(),self.x/self.magnitude()
         # or return self.y/self.magnitude(),-self.x/self.magnitude()
-        
+
     def dot(self,L2):
         """Dot product with another line
         """
         return self.x*L2.x + self.y*L2.y
-    
+
     def angle(self,L2):
         """Angle with another line
         """
         costheta = self.dot(L2)/(self.magnitude() * L2.magnitude())
         return np.arccos(costheta)
-        
+
 
 def ccw(A,B,C):
-	return (C.y-A.y)*(B.x-A.x) > (B.y-A.y)*(C.x-A.x)
+    return (C.y-A.y)*(B.x-A.x) > (B.y-A.y)*(C.x-A.x)
 
 def intersect(A,B,C,D):
     """
@@ -1261,7 +1261,7 @@ def intersect(A,B,C,D):
     return ccw(A,C,D) != ccw(B,C,D) and ccw(A,B,C) != ccw(A,B,D)
 
 def intersectvec(A,B,C,D):
-	return op.and_( op.ne(ccwvec(A,C,D),ccwvec(B,C,D)),op.ne(ccwvec(A,B,C),ccwvec(A,B,D)) )
+    return op.and_( op.ne(ccwvec(A,C,D),ccwvec(B,C,D)),op.ne(ccwvec(A,B,C),ccwvec(A,B,D)) )
 
 def ccwvec(A,B,C):
     return op.gt( (C.y-A.y)*(B.x-A.x),(B.y-A.y)*(C.x-A.x) )
@@ -1269,8 +1269,8 @@ def ccwvec(A,B,C):
 def dist(x0,x1,y0,y1):
     return np.sqrt( (x0-x1)**2. + (y0-y1)**2.)
 
-    
-    
+
+
 #P1a = Point(0.,0.)
 #P2a = Point(0.,1.)
 #P0a = Point(-3.,0.)

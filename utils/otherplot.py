@@ -96,7 +96,7 @@ class StreakPlot(object):
         ax.set_ylim(self.ylim)
         ax.set_aspect('equal')
 
-        map(ax.add_collection,self.lcs)
+        list(map(ax.add_collection,self.lcs))
         #for lc in self.lcs:
         #    ax.add_collection(lc)
 
@@ -116,14 +116,14 @@ def streakplot(xp,yp,ax=None,**kwargs):
 def stackplot(t,y,scale=None,gap=0.2,ax=None,fig=None,units='',labels=None,**kwargs):
     """
     Vertically stacked time series plot.
-    
-    Puts all of the time-series into one axes by working out a suitable spacing. 
-    
+
+    Puts all of the time-series into one axes by working out a suitable spacing.
+
     Inputs:
         y - 2d array [nt,ny] where ny is the number of time series
         t - datetime vector
-        
-    Returns: 
+
+    Returns:
         fig, ax : figure and axes handles
         ll : plot handles to each line plot [list]
     """
@@ -133,28 +133,28 @@ def stackplot(t,y,scale=None,gap=0.2,ax=None,fig=None,units='',labels=None,**kwa
     # Make sure that the time is datetime
     if isinstance(t[0], np.datetime64):
         t = othertime.datetime64todatetime(t)
-        
+
     if scale==None:
         scale = np.abs(y).max()
-    
+
     if not labels == None:
         assert len(labels)==ny, ' number of labels (%d) must equal number of layers (%d)'%(len(labels),ny)
-        
+
     # Height of each axes in normalized coordinates
     yheight = 1.0 / (ny + (ny+1.0)*gap)
-    
+
     # Create a new figure
     if fig==None:
         fig=plt.figure()
     else:
         fig = plt.gcf()
-    
+
     if ax == None:
         ax = fig.add_subplot(111,frame_on=False,ylim=[0,1.0],yticks=[])
-        
+
     # Now add each line to the figure
     ll = [] # List of line objects
-    
+
     def fakeaxes(yval,dy):
         cc=[0.5,0.5,0.5]
         ax.add_line(Line2D([0,1],[yval,yval],linewidth=0.5,color=cc,transform=ax.transAxes,linestyle='--'))
@@ -167,9 +167,9 @@ def stackplot(t,y,scale=None,gap=0.2,ax=None,fig=None,units='',labels=None,**kwa
         ax.add_line(Line2D([0,0.01],[ym,ym],linewidth=0.5,color=cc,transform=ax.transAxes))
         ax.add_line(Line2D([0.99,1],[yp,yp],linewidth=0.5,color=cc,transform=ax.transAxes))
         ax.add_line(Line2D([0.99,1],[ym,ym],linewidth=0.5,color=cc,transform=ax.transAxes))
-        
+
     for N in range(1,ny+1):
-        yoffset = N*(gap*yheight) + 0.5*yheight + (N-1)*yheight     
+        yoffset = N*(gap*yheight) + 0.5*yheight + (N-1)*yheight
         # scaling factor
         #vscale = yheight / (scale+yoffset)
         vscale = yheight / (2*scale)
@@ -177,46 +177,46 @@ def stackplot(t,y,scale=None,gap=0.2,ax=None,fig=None,units='',labels=None,**kwa
         ll.append(l)
         #Adds an axes
         fakeaxes(yoffset,yheight)
-        
+
         if not labels==None:
             plt.text(0.2,yoffset+0.5*yheight-0.02,labels[N-1],transform=ax.transAxes,fontstyle='italic')
-              
-    # Add a few extra features    
+
+    # Add a few extra features
     ax.add_line(Line2D([0,1],[0.01,0.01],linewidth=0.5,color='k',transform=ax.transAxes))
     ax.add_line(Line2D([0,1],[1,1],linewidth=0.5,color='k',transform=ax.transAxes))
     plt.xticks(rotation=17)
     plt.ylabel('Scale = $\pm$%2.1f  [%s]'%(scale,units))
-    
+
     return fig,ax,ll
-    
+
 def SpeedDirPlot(t,u,v,convention='current',units='m s^{-1}',color1='b',color2='r'):
     """
     Plots speed and direction on the same axes
-    
+
     Inputs:
         t - time vector
         u,v - velocity cartesian components
-        
+
     Returns:
         ax - list of axes  handles
         h - list of plot handles
-    
+
     convention = 'current' or 'wind'
-    
+
     See this example:
         http://matplotlib.org/examples/api/two_scales.html
     """
     import airsea
-    
+
     Dir, Spd = airsea.convertUV2SpeedDirn(u,v,convention=convention)
-    
-    
-    ax = range(2)
-    h = range(2)
+
+
+    ax = list(range(2))
+    h = list(range(2))
     fig = plt.gcf()
     ax[0] = fig.gca()
-    
-    
+
+
     # Left axes
     h[0] = ax[0].fill_between(t, Spd, color=color1,alpha=0.7)
     # Make the y-axis label and tick labels match the line color.
@@ -233,22 +233,22 @@ def SpeedDirPlot(t,u,v,convention='current',units='m s^{-1}',color1='b',color2='
     ax[1].set_yticklabels(['N','E','S','W'])
     for tl in ax[1].get_yticklabels():
         tl.set_color(color2)
-        
+
     plt.setp( ax[0].xaxis.get_majorticklabels(), rotation=17 )
-        
+
     return ax, h
 
 def ProfilePlot(t,y,z,scale=86400,\
         axis=0,color=[0.5,0.5,0.5],xlim=None,units='m/s',scalebar=1.0):
     """
     Plot a series of vertical profiles as a time series
-    
+
     scale - Sets 1 unit = scale (seconds)
-    
+
     See this page on formatting:
         http://matplotlib.org/examples/pylab_examples/date_index_formatter.html
     """
-    
+
     class MyFormatter(Formatter):
         def __init__(self, dates, fmt='%b %d %Y'):
             self.fmt = fmt
@@ -260,9 +260,9 @@ def ProfilePlot(t,y,z,scale=86400,\
 
     tsec = othertime.SecondsSince(t)
     formatter = MyFormatter(tsec)
-    
+
     y = np.swapaxes(y,0,axis)
-    
+
     lines=[]
     line2 =[]
     for ii, tt in enumerate(tsec):
@@ -270,11 +270,11 @@ def ProfilePlot(t,y,z,scale=86400,\
         xplot = tt + y[:,ii]*scale
         lines.append(np.array((xplot,z)).T)
         line2.append(np.array([[tt,tt],[z[0],z[-1]]]).T)
-        
-    
+
+
     LC1 = collections.LineCollection(lines,colors=color,linewidths=1.5)
     LC2 = collections.LineCollection(line2,colors='k',linestyles='dashed') # Zero axis
-    
+
     ax=plt.gca()
     ax.add_collection(LC1)
     ax.add_collection(LC2)
@@ -285,12 +285,12 @@ def ProfilePlot(t,y,z,scale=86400,\
     else:
         xlim=othertime.SecondsSince(xlim)
     ax.set_xlim(xlim)
-    plt.xticks(rotation=17)       
+    plt.xticks(rotation=17)
 
     ###
-    # Add a scale bar    
+    # Add a scale bar
     ###
-    
+
     # Compute the scale bar size in dimensionless units
     if not scalebar==None:
         xscale = scalebar*scale/(xlim[-1]-xlim[0])
@@ -304,67 +304,67 @@ def ProfilePlot(t,y,z,scale=86400,\
         plt.text(x0,y0+0.05,'Scale %3.1f %s'%(scalebar,units),\
             transform=ax.transAxes)
 
-    
+
     return ax
-    
+
 def monthlyhist(t,y,ylim=0.1,xlabel='',ylabel='',title='',**kwargs):
     """
     Plots 12 histograms on a 6x2 matrix of variable, y, grouped by calendar month
-    
+
     Inputs:
         y - vector of data
         t - vector of datetime objects
         kwargs - keyword arguments for numpy.hist
-            
+
     """
     month = othertime.getMonth(t)
     fig=plt.gcf()
-    
+
     for m in range(1,13):
-        
+
         # Find the values
         ind = np.argwhere(month==m)
         data=y[ind]
-        
+
         ax=plt.subplot(6,2,m)
         if len(data)>0:
             plt.hist(data,**kwargs)
-        
+
         mon=datetime.strftime(datetime(1900,m,1),'%B')
         plt.title(mon)
-        plt.ylim([0,ylim]) 
-        
-    
-        if m not in (11,12):         
+        plt.ylim([0,ylim])
+
+
+        if m not in (11,12):
             ax.set_xticklabels([])
         else:
             plt.xlabel(xlabel)
-            
-            
+
+
         if m not in (1,3,5,7,9,11):
             ax.set_yticklabels([])
         else:
             plt.ylabel(ylabel)
-            
-        
+
+
         #Calc some stats
         textstr = 'Mean: %6.1f\nStd. Dev.: %6.1f\n'%(np.mean(data),np.std(data))
         plt.text(0.5,0.5,textstr,transform=ax.transAxes)
-        
+
         # plot a title
         plt.figtext(0.5,0.95,title,fontsize=14,horizontalalignment='center')
-        
+
     return fig
-    
+
 def window_index(serieslength,windowsize,overlap):
     """
     Determines the indices for start and end points of a time series window
-    
+
     Inputs:
         serieslength - length of the vector [int]
         windowsize - length of the window [int]
         overlap - number of overlap points [int]
-        
+
     Returns: pt1,pt2 the start and end indices of each window
     """
 
@@ -377,45 +377,45 @@ def window_index(serieslength,windowsize,overlap):
         p2 = min((p1 + windowsize, serieslength))
         pt1.append(p1)
         pt2.append(p2)
-        
+
     return pt1, pt2
-    
+
 
 
 def axcolorbar(cbobj,pos=[0.7, 0.8, 0.2, 0.04],ax=None,fig=None,orientation='horizontal',**kwargs):
-	"""
-	Inserts a colorbar with a position relative to an axes and not a figure
-	
-	Inputs:
-		cbobj - plot object for colorbar
-		pos - position vector [x0, y0, width, height] in dimensionless coordinates
-		ax - axes to insert colobar
-		figure - figure 
-		**kwargs - arguments for plt.colorbar
-	
-	Returns a colorbar object
-	
-	Derived from this post:
-		http://stackoverflow.com/questions/22413211/cant-fix-position-of-colorbar-in-image-with-multiple-subplots
-	"""
-	if fig is None:
-		fig=plt.gcf()
-	if ax is None:
-		ax=plt.gca()
-		
-	fig.tight_layout()  # You call fig.tight_layout BEFORE creating the colorbar
+    """
+    Inserts a colorbar with a position relative to an axes and not a figure
 
-	# You input the POSITION AND DIMENSIONS RELATIVE TO THE AXES
-	x0, y0, width, height = pos
+    Inputs:
+            cbobj - plot object for colorbar
+            pos - position vector [x0, y0, width, height] in dimensionless coordinates
+            ax - axes to insert colobar
+            figure - figure
+            **kwargs - arguments for plt.colorbar
 
-	# and transform them after to get the ABSOLUTE POSITION AND DIMENSIONS
-	Bbox = transforms.Bbox.from_bounds(x0, y0, width, height)
-	trans = ax.transAxes + fig.transFigure.inverted()
-	l, b, w, h = transforms.TransformedBbox(Bbox, trans).bounds
+    Returns a colorbar object
 
-	# Now just create the axes and the colorbar
-	cbaxes = fig.add_axes([l, b, w, h])
-	cbar = plt.colorbar(cbobj, cax=cbaxes,orientation=orientation, **kwargs)
-	cbar.ax.tick_params(labelsize=9)
+    Derived from this post:
+            http://stackoverflow.com/questions/22413211/cant-fix-position-of-colorbar-in-image-with-multiple-subplots
+    """
+    if fig is None:
+        fig=plt.gcf()
+    if ax is None:
+        ax=plt.gca()
 
-	return cbar
+    fig.tight_layout()  # You call fig.tight_layout BEFORE creating the colorbar
+
+    # You input the POSITION AND DIMENSIONS RELATIVE TO THE AXES
+    x0, y0, width, height = pos
+
+    # and transform them after to get the ABSOLUTE POSITION AND DIMENSIONS
+    Bbox = transforms.Bbox.from_bounds(x0, y0, width, height)
+    trans = ax.transAxes + fig.transFigure.inverted()
+    l, b, w, h = transforms.TransformedBbox(Bbox, trans).bounds
+
+    # Now just create the axes and the colorbar
+    cbaxes = fig.add_axes([l, b, w, h])
+    cbar = plt.colorbar(cbobj, cax=cbaxes,orientation=orientation, **kwargs)
+    cbar.ax.tick_params(labelsize=9)
+
+    return cbar

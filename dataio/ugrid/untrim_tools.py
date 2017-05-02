@@ -51,169 +51,169 @@ vname = 'Mesh2'
 dimensions = ()
 attributes = {
         'dimension': 2,\
-		'cf_role': "mesh_topology" ,\
-		'long_name': "Topology data of 2D untrim mesh" ,\
-		'node_coordinatesi': "Mesh2_node_x Mesh2_node_y",\
-		'edge_coordinates': "Mesh2_edge_x Mesh2_edge_y",\
-		'face_coordinates': "Mesh2_face_x Mesh2_face_y",\
-		'edge_node_connectivity': "Mesh2_edge_nodes",\
-		'edge_face_connectivity': "Mesh2_edge_faces",\
-		'face_node_connectivity': "Mesh2_face_nodes",\
-		'face_edge_connectivity': "Mesh2_face_edges" \
+                'cf_role': "mesh_topology" ,\
+                'long_name': "Topology data of 2D untrim mesh" ,\
+                'node_coordinatesi': "Mesh2_node_x Mesh2_node_y",\
+                'edge_coordinates': "Mesh2_edge_x Mesh2_edge_y",\
+                'face_coordinates': "Mesh2_face_x Mesh2_face_y",\
+                'edge_node_connectivity': "Mesh2_edge_nodes",\
+                'edge_face_connectivity': "Mesh2_edge_faces",\
+                'face_node_connectivity': "Mesh2_face_nodes",\
+                'face_edge_connectivity': "Mesh2_face_edges" \
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_node_x'
 dimensions = ('nMesh2_node',)
 attributes = {
-		'long_name': "x-Coordinate of untrim grid node" ,\
+                'long_name': "x-Coordinate of untrim grid node" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_node_y'
 dimensions = ('nMesh2_node',)
 attributes = {
-		'long_name': "y-Coordinate of untrim grid node" ,\
+                'long_name': "y-Coordinate of untrim grid node" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_x'
 dimensions = ('nMesh2_face',)
 attributes = {
-		'long_name': "x-Coordinate of untrim grid face" ,\
+                'long_name': "x-Coordinate of untrim grid face" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_y'
 dimensions = ('nMesh2_face',)
 attributes = {
-		'long_name': "y-Coordinate of untrim grid face" ,\
+                'long_name': "y-Coordinate of untrim grid face" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_edge_x'
 dimensions = ('nMesh2_edge',)
 attributes = {
-		'long_name': "x-Coordinate of untrim polygon edge" ,\
+                'long_name': "x-Coordinate of untrim polygon edge" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_edge_y'
 dimensions = ('nMesh2_edge',)
 attributes = {
-		'long_name': "y-Coordinate of untrim polygon edge" ,\
+                'long_name': "y-Coordinate of untrim polygon edge" ,\
         'units':'m'
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_edge_bc'
 dimensions = ('nMesh2_edge',)
 attributes = {
-		'long_name': "untrim polygon edge boundary condition" ,\
+                'long_name': "untrim polygon edge boundary condition" ,\
         'flags':'none closed dirichlet'
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_bc'
 dimensions = ('nMesh2_face',)
 attributes = {
-		'long_name': "untrim polygon boundary condition" ,\
+                'long_name': "untrim polygon boundary condition" ,\
         'flags':'none water_level'
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_edge_faces'
 dimensions = ('nMesh2_edge','Two',)
 attributes = {
-		'long_name': "Maps every edge to its bounding faces" ,\
+                'long_name': "Maps every edge to its bounding faces" ,\
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_edge_nodes'
 dimensions = ('nMesh2_edge','Two',)
 attributes = {
-		'long_name': "Maps every edge to its end nodes " ,\
+                'long_name': "Maps every edge to its end nodes " ,\
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_face_nodes'
 dimensions = ('nMesh2_face','nMaxMesh2_face_nodes',)
 attributes = {
-		'long_name': "Maps every polygon face its corner nodes" ,\
+                'long_name': "Maps every polygon face its corner nodes" ,\
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_face_edges'
 dimensions = ('nMesh2_face','nMaxMesh2_face_nodes',)
 attributes = {
-		'long_name': "Maps every polygon face its edges" ,\
+                'long_name': "Maps every polygon face its edges" ,\
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_edge_depth'
 dimensions = ('nMesh2_edge',)
 attributes = {
-		'long_name': "Maximum depth of edge" ,\
+                'long_name': "Maximum depth of edge" ,\
         'units':'m',\
         'positive':'down',\
         'coordinates': "Mesh2_edge_x Mesh2_edge_y" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_depth'
 dimensions = ('nMesh2_face',)
 attributes = {
-		'long_name': "Maximum depth of face" ,\
+                'long_name': "Maximum depth of face" ,\
         'units':'m',\
         'positive':'down',\
         'coordinates': "Mesh2_face_x Mesh2_face_y" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_layer_3d'
 dimensions = ('nMesh2_layer_3d',)
 attributes = {
-		'long_name': "elevation of layer" ,\
+                'long_name': "elevation of layer" ,\
         'units':'m',\
         'positive':'up',\
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_data_time'
@@ -222,7 +222,7 @@ attributes = {
         'units': "days since 1899-12-31 00:00:00.0" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_data_time_string'
@@ -232,139 +232,139 @@ attributes = {
         'units': "yyyy-mm-dd HH:MM:SS" \
         }
 
-dtype = 'c'		
+dtype = 'c'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'h_flow_avg'
 dimensions = ('nMesh2_edge','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "Horizontal volume flux averaged over integration interval" ,\
+                'long_name': "Horizontal volume flux averaged over integration interval" ,\
         'units':'m3 s-1',\
         'coordinates': "Mesh2_edge_x Mesh2_edge_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'v_flow_avg'
 dimensions = ('nMesh2_face','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "Vertical volume flux averaged over integration interval" ,\
+                'long_name': "Vertical volume flux averaged over integration interval" ,\
         'units':'m3 s-1',\
         'coordinates': "Mesh2_face_x Mesh2_face_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_edge_wet_area'
 dimensions = ('nMesh2_edge','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "sea area" ,\
+                'long_name': "sea area" ,\
         'units':'m2',\
         'coordinates': "Mesh2_edge_x Mesh2_edge_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_face_wet_area'
 dimensions = ('nMesh2_face','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "sea area" ,\
+                'long_name': "sea area" ,\
         'units':'m2',\
         'coordinates': "Mesh2_face_x Mesh2_face_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_edge_bottom_layer'
 dimensions = ('nMesh2_edge','nMesh2_data_time')
 attributes = {
-		'long_name': "bottom most active layer (from either side of edge)" ,\
+                'long_name': "bottom most active layer (from either side of edge)" ,\
         'units':'',\
         'coordinates': "Mesh2_edge_x Mesh2_edge_y" \
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_edge_top_layer'
 dimensions = ('nMesh2_edge','nMesh2_data_time')
 attributes = {
-		'long_name': "top most active layer (from either side of edge)" ,\
+                'long_name': "top most active layer (from either side of edge)" ,\
         'units':'',\
         'coordinates': "Mesh2_edge_x Mesh2_edge_y" \
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_bottom_layer'
 dimensions = ('nMesh2_face','nMesh2_data_time')
 attributes = {
-		'long_name': "bottom most active layer (from either side of edge)" ,\
+                'long_name': "bottom most active layer (from either side of edge)" ,\
         'units':'',\
         'coordinates': "Mesh2_face_x Mesh2_face_y" \
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_top_layer'
 dimensions = ('nMesh2_face','nMesh2_data_time')
 attributes = {
-		'long_name': "top most active layer (from either side of edge)" ,\
+                'long_name': "top most active layer (from either side of edge)" ,\
         'units':'',\
         'coordinates': "Mesh2_face_x Mesh2_face_y" \
         }
 
-dtype = 'i4'		
+dtype = 'i4'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':False}})
 
 vname = 'Mesh2_face_water_volume'
 dimensions = ('nMesh2_face','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "Water prism volume" ,\
+                'long_name': "Water prism volume" ,\
         'units':'m3',\
         'coordinates': "Mesh2_face_x Mesh2_face_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_salinity_3d'
 dimensions = ('nMesh2_face','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "salinity" ,\
+                'long_name': "salinity" ,\
         'units':'psu',\
         'coordinates': "Mesh2_face_x Mesh2_face_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_vertical_diffusivity_3d'
 dimensions = ('nMesh2_face','nMesh2_layer_3d','nMesh2_data_time')
 attributes = {
-		'long_name': "vertical diffusivity" ,\
+                'long_name': "vertical diffusivity" ,\
         'units':'m2 s-1',\
         'coordinates': "Mesh2_face_x Mesh2_face_y Mesh2_edge_z_3d" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 vname = 'Mesh2_sea_surface_elevation'
 dimensions = ('nMesh2_face','nMesh2_data_time')
 attributes = {
-		'long_name': "sea surface elevation" ,\
+                'long_name': "sea surface elevation" ,\
         'units':'m',\
         'coordinates': "Mesh2_face_x Mesh2_face_y" \
         }
 
-dtype = 'f8'		
+dtype = 'f8'
 untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dtype':dtype,'zlib':True,'complevel':1,'fill_value':fillval}})
 
 
@@ -374,7 +374,7 @@ untrim_ugrid.update({vname:{'dimensions':dimensions,'attributes':attributes,'dty
 class UNTRIMGrid(Grid):
     """
     UnTRIM grid class for loading from a netcdf file
-    """ 
+    """
     def __init__(self,ncfile):
         self.ncfile=ncfile
         Grid.__init__(self,ncfile,gridvars=untrim_gridvars,griddims=untrim_griddims)
@@ -393,9 +393,9 @@ class UNTRIMSpatial(Spatial):
         self.xy = self.cellxy()
 
 
-    
+
     def loadDataRaw(self,variable=None):
-        """ 
+        """
         Overloaded method - Untrim variables are ordered in a different order
         Untrim: [Nc,Nk,Nt] or [Nc,Nt]
         SUNTANS: [Nt,Nk,Nc] or [Nt,Nc]
@@ -403,14 +403,14 @@ class UNTRIMSpatial(Spatial):
         """
         if variable==None:
             variable=self.variable
-	
+
         if self.hasDim(variable,self.griddims['Ne']) and self.j==None:
-            j=range(self.Ne)
+            j=list(range(self.Ne))
         elif self.hasDim(variable,self.griddims['Nc']) and self.j==None:
-            j=range(self.Nc)
+            j=list(range(self.Nc))
         else:
             j = self.j
-            
+
         nc = self.nc
         try:
             self.long_name = nc.variables[variable].long_name
@@ -427,7 +427,7 @@ class UNTRIMSpatial(Spatial):
             self.data = data.swapaxes(0,1)
         else:
             if self.klayer[0]==-1: # grab the seabed values
-                raise Exception, 'Seabed extraction not implemented for UnTRIM'
+                raise Exception('Seabed extraction not implemented for UnTRIM')
                 #klayer = np.arange(0,self.Nkmax)
 
                 ##if type(self.tstep)==int:
@@ -442,11 +442,11 @@ class UNTRIMSpatial(Spatial):
                 #        data=nc.variables[variable][t,klayer,j]
                 #        self.data[i,:] = data[self.Nk[j],j]
             elif self.klayer[0]==-99: # Grab all layers
-                klayer = np.arange(0,self.Nkmax) 
+                klayer = np.arange(0,self.Nkmax)
                 #self.data=nc.variables[variable][self.tstep,klayer,j]
                 data=nc.variables[variable][j,klayer,self.tstep]
                 self.data = data.swapaxes(0,2)
-            
+
             else:
                 klayer = self.klayer
                 data=nc.variables[variable][j,klayer,self.tstep]
@@ -454,13 +454,11 @@ class UNTRIMSpatial(Spatial):
                     self.data = data.swapaxes(0,2)
                 else:
                     self.data=data
-        
+
         # Mask the data
-        
+
         self.mask = self.data==self._FillValue
         self.data[self.mask]=0.
         self.data = self.data.squeeze()
-        
-        return self.data
- 
 
+        return self.data

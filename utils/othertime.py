@@ -51,15 +51,15 @@ def SecondsSince(timein, basetime = datetime(1990,1,1)):
     isdatetime64 = False
     if isinstance(timein, list) or isinstance(timein, np.ndarray):
         isarray = True
-	if isinstance(timein[0], datetime):
-	     isdatetime = True
-	elif isinstance(timein[0], np.datetime64):
-	     isdatetime64 = True
+        if isinstance(timein[0], datetime):
+            isdatetime = True
+        elif isinstance(timein[0], np.datetime64):
+            isdatetime64 = True
 
     if isarray and isdatetime64:
         time0 = np.datetime64(basetime)
         tsec = ((timein.astype('<M8[ns]') - time0)\
-		*1e-9).astype(np.float64)
+                *1e-9).astype(np.float64)
 
     elif isarray and isdatetime:
         tsec = np.array([(t-basetime).total_seconds() for t in timein])
@@ -67,17 +67,17 @@ def SecondsSince(timein, basetime = datetime(1990,1,1)):
     else: # Assume its a datetime object (this is not good..)
         if isinstance(timein, datetime):
             tsec = (timein-basetime).total_seconds()
-	    #timein = np.datetime64(timein)
+            #timein = np.datetime64(timein)
 
-	    #time0 = np.datetime64(timein)
-	    #tsec = (timein-time0).item().total_seconds() # TimeDelta object
+            #time0 = np.datetime64(timein)
+            #tsec = (timein-time0).item().total_seconds() # TimeDelta object
         else:
             time0 = np.datetime64(basetime)
-	    try:
-		tsec = ((timein - time0)*1e-9).astype(np.float64)
-	    except:
-		
-	    	tsec = (timein-time0).total_seconds() # TimeDelta object
+            try:
+                tsec = ((timein - time0)*1e-9).astype(np.float64)
+            except:
+                
+                tsec = (timein-time0).total_seconds() # TimeDelta object
 
 
     return tsec
@@ -151,8 +151,8 @@ def datetime64todatetime(t):
     Convert a vector of datetime64 to datetime objects
     """
     return np.array([\
-    	datetime.utcfromtimestamp(\
-	ii.astype('<M8[ns]').astype(float)*1e-9) for ii in t])
+        datetime.utcfromtimestamp(\
+        ii.astype('<M8[ns]').astype(float)*1e-9) for ii in t])
 
 def datetimetodatetime64(t):
     """

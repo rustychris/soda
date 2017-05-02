@@ -1,8 +1,8 @@
 """
 Wrapper function for finding points inside polygon
 
-This provides backwards compatibility as 
-matplotlib changed the method as of v1.3.x 
+This provides backwards compatibility as
+matplotlib changed the method as of v1.3.x
 """
 
 import matplotlib
@@ -11,7 +11,7 @@ import matplotlib
 # points_in_polygon tool
 
 if matplotlib.__version__<='1.2.x':
-    from matplotlib.nxutils import points_inside_poly 
+    from matplotlib.nxutils import points_inside_poly
     version = 'old'
 else:
     from matplotlib.path import Path
@@ -23,4 +23,3 @@ def inpolygon(xy,xypoly):
     else:
         Poly = Path(xypoly)
         return Poly.contains_points(xy)
- 

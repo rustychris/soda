@@ -3,7 +3,7 @@ Build with:
      python setup.py build_ext --inplace
 
 See this site for building on windows-64:
-	https://github.com/cython/cython/wiki/CythonExtensionsOnWindows
+        https://github.com/cython/cython/wiki/CythonExtensionsOnWindows
 """
 
 #from distutils.core import setup

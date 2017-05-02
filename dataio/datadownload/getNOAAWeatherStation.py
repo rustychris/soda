@@ -1,59 +1,57 @@
 # -*- coding: utf-8 -*-
 r"""
-	Tools for downloading and converting NOAA/NWS weather station data.
-	
-	Data is downloaded from the NOAA ftp server:
-		ftp://ftp.ncdc.noaa.gov/pub/data/ish/
-	
-	Example
+        Tools for downloading and converting NOAA/NWS weather station data.
+
+        Data is downloaded from the NOAA ftp server:
+                ftp://ftp.ncdc.noaa.gov/pub/data/ish/
+
+        Example
     --------
-	>>> from datetime import datetime
-	>>> import getNOAAWeatherStation as noaa
-	>>> 
-	>>> latlon = [-95.60,-93.7,28.8,30]
-	>>> timestart = 2010
-	>>> timeend = 2012
-	>>> dt = 1.0/24.0
-	>>> localdir = 'C:/Projects/GOMGalveston/CODE/PYTHON/NOAAWeather/rawdata/'
-	>>> showplot = False
-	>>> ncfile = 'C:/Projects/GOMGalveston/DATA/Winds/NCDCNWS_AirObs_20102011.nc'
-	>>> shpfile = 'C:/Projects/GOMGalveston/DATA/Winds/NCDCNWS_AirObs_20102011.shp'
-	>>> 
-	>>> data = noaa.noaaish2nc(latlon,[timestart.year,timeend.year],localdir,ncfile,shpfile)
+        >>> from datetime import datetime
+        >>> import getNOAAWeatherStation as noaa
+        >>>
+        >>> latlon = [-95.60,-93.7,28.8,30]
+        >>> timestart = 2010
+        >>> timeend = 2012
+        >>> dt = 1.0/24.0
+        >>> localdir = 'C:/Projects/GOMGalveston/CODE/PYTHON/NOAAWeather/rawdata/'
+        >>> showplot = False
+        >>> ncfile = 'C:/Projects/GOMGalveston/DATA/Winds/NCDCNWS_AirObs_20102011.nc'
+        >>> shpfile = 'C:/Projects/GOMGalveston/DATA/Winds/NCDCNWS_AirObs_20102011.shp'
+        >>>
+        >>> data = noaa.noaaish2nc(latlon,[timestart.year,timeend.year],localdir,ncfile,shpfile)
 """
-import csv 
+import csv
 import numpy as np
 from ftplib import FTP
 import gzip
 from datetime import datetime
 import os
-import airsea
-import netcdfio
-
-import pdb
+import soda.utils.myairsea as airsea
+import soda.dataio.netcdfio as netcdfio
 
 
 def noaaish2nc(latlon,yearrange,localdir,ncfile,shpfile):
-    
+
     """ Reads in the noaa data and spits it out to a netcdf file"""
-    
+
     varnames = ['Tair','Pair','Uwind','Vwind','RH','rain','cloud']
     # Read in the semi-processed data
     timestart=yearrange[0]
     timeend=yearrange[1]
 
-    data = readall(latlon,[timestart,timeend],localdir) 
-    
+    data = readall(latlon,[timestart,timeend],localdir)
+
     data = dataQC(data,varnames)
-       
+
     # Create the dictionary format necessary to parse the data to a grouped netcdf file
     ncdict=[]
-    for dd in data: 
-        for vv in dd.keys():
+    for dd in data:
+        for vv in list(dd.keys()):
             if vv in varnames:
                 # Start building the dictionary
                 if np.size(dd['Longitude'])>0 or np.size(dd['Latitude'])>0:
-                    if dd[vv].has_key('Height'):
+                    if 'Height' in dd[vv]:
                         ele = dd[vv]['Height']
                     else:
                         ele=0.0
@@ -61,45 +59,45 @@ def noaaish2nc(latlon,yearrange,localdir,ncfile,shpfile):
                     {'Name':'latitude','Value':dd['Latitude'],'units':'degrees North'},\
                     {'Name':'elevation','Value':ele,'units':'metres','positive':'up'},\
                     {'Name':'time','Value':dd[vv]['Time'],'units':'minutes since 1970-01-01 00:00:00'}]
-                    
+
                     attribs = {'StationID':dd['StationID'],'StationName':dd['StationName'],'Data':dd[vv]['Data'],\
                     'coordinates':'time, elevation, longitude, latitude','long_name':dd[vv]['Longname'],\
-                    'units':dd[vv]['Units'],'coords':coords} 
+                    'units':dd[vv]['Units'],'coords':coords}
                     ncdict.append({vv:attribs})
                 else:
-                    print 'Station: %s missing coordinate info - skipping'%dd['StationName']
-    
+                    print('Station: %s missing coordinate info - skipping'%dd['StationName'])
+
     globalatts = {'title':'NCDC/NWS integrated surface hourly observation data',\
     'history':'Created on '+datetime.ctime(datetime.now()),\
-    'source':'ftp://ftp.ncdc.noaa.gov/pub/data/ish/'}            
-    
+    'source':'ftp://ftp.ncdc.noaa.gov/pub/data/ish/'}
+
     # Write the output to a netcdf file
     netcdfio.writePointData2Netcdf(ncfile,ncdict,globalatts)
-    
+
     # Write the metadata to a shapefile
     netcdfio.pointNC2shp(ncfile,shpfile)
-    
+
     return ncdict
-    
-    
+
+
 def readall(latlon,yearrange,localdir):
     """ Main function for reading in the ISH file data"""
-    
+
     # Connect to the ftp server
     ftpdir = '/pub/data/noaa/'
     ftpsrvr = 'ftp.ncdc.noaa.gov'
     ftp = FTP(ftpsrvr)
-    ftp.login() 
+    ftp.login()
     #ftp.cwd(ftpdir)
     #ftp.retrlines('LIST')
-    
+
     # List the local files
     localfiles = os.listdir(localdir)
-    
-    # Get the names of the stations 
+
+    # Get the names of the stations
     stations = getFileNames(latlon,yearrange,localdir)
 
-    
+
     # Loop through and check if the files are in the local directory, if not download
     data_all = []
     for dd in stations:
@@ -108,25 +106,25 @@ def readall(latlon,yearrange,localdir):
             kk+=1
             # Check if the file exists locally
             if ff in localfiles:
-                print 'File found locally: %s' % ff
+                print('File found locally: %s' % ff)
                 gzfile = localdir+'/'+ff
             else:
                 gzfile = localdir+'/'+ff
                 ftpfile = ff
                 ftp.cwd(ftpdir+str(yy))
                 #ftp.retrlines('LIST')
-                print 'Downloading file: %s...' % ftpfile
-		try:
-		    ftp.retrbinary('RETR '+ftpfile,open(gzfile, 'wb').write)
-		    print 'Completed download.'
-		except:
-		    print '!!File not found on the ftp server!!'
-		    continue
-            
-           
+                print('Downloading file: %s...' % ftpfile)
+                try:
+                    ftp.retrbinary('RETR '+ftpfile,open(gzfile, 'wb').write)
+                    print('Completed download.')
+                except:
+                    print('!!File not found on the ftp server!!')
+                    continue
+
+
             if kk == 1:
-                 # Now read the data
-                 data = ishData2struct(gzfile,dd['station_id'],dd['station_name'])
+                # Now read the data
+                data = ishData2struct(gzfile,dd['station_id'],dd['station_name'])
             else:
                 # Now read the data
                 datanew = ishData2struct(gzfile,dd['station_id'],dd['station_name'])
@@ -145,20 +143,20 @@ def readall(latlon,yearrange,localdir):
                 data['rain']['Time']+=datanew['rain']['Time']
                 data['cloud']['Data']+=datanew['cloud']['Data']
                 data['cloud']['Time']+=datanew['cloud']['Time']
-            
+
         data_all.append(data)
     return data_all
-    
-             
+
+
 def stationMeta(csvfile = "isd-history.csv"):
     """
     Read the NOAA station metadata csv file
-    
+
     Created on Mon Jul 23 15:57:03 2012
     @author: mrayson
     """
     histf = csv.reader(open(csvfile,'r'))
-    
+
     i=0
     missingval = -999.0
     station_id = []
@@ -172,41 +170,41 @@ def stationMeta(csvfile = "isd-history.csv"):
         if i > 0:
             station_id.append(row[0]+'-'+row[1])
             station.append(row[2])
-            
+
             if len(row[6])>0:
                 lat.append(np.float(row[6]))
             else:
                 lat.append(missingval)
-                
+
             if len(row[7])>0:
                 lon.append(np.float(row[7]))
             else:
                 lon.append(missingval)
-                
+
             if len(row[8])>0:
                 elevation.append(np.float(row[8])/10)
             else:
                 elevation.append(missingval)
-                
+
             startyr.append(row[9][0:4])
             endyr.append(row[10][0:4])
         i += 1
-        
+
     stationdata = {'station_id':station_id,'name':station, \
         'lon':lon,'lat':lat,'elevation':elevation,'start':startyr,'end':endyr}
-    
+
     return stationdata
-    
+
 def parseAddData(line,recl):
     """
     Parses the additional data string at the end of the line
     """
     pos = 0
     data={}
-    
+
     if 'RHUM'  in line:
-        print '!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!'
-    for i in range(0,50):        
+        print('!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!')
+    for i in range(0,50):
         fc = line[pos:pos+3] # field code
         pos=pos+3
         if fc in ('AA1', 'AA2', 'AA3', 'AA4'):
@@ -216,7 +214,7 @@ def parseAddData(line,recl):
             pos+=2
             data['LIQUID_PRECIPITATION_VOLUME']=float(line[pos:pos+4])/10 # mm
             data['LIQUID_PRECIPITATION_VOLUME']==checkMissingVal(data['LIQUID_PRECIPITATION_VOLUME'],999.9)
-            pos+=6          
+            pos+=6
         elif fc == 'AB1':
             #LIQUID-PRECIPITATION MONTHLY TOTAL (skip)
             pos+=7
@@ -227,7 +225,7 @@ def parseAddData(line,recl):
             #LIQUID-PRECIPITATION GREATEST AMOUNT IN 24 HOURS, FOR THE MONTH
             pos +=19
         elif fc == 'AE1':
-            #LIQUID-PRECIPITATION, NUMBER OF DAYS WITH SPECIFIC AMOUNTS, FOR THE MONTH                
+            #LIQUID-PRECIPITATION, NUMBER OF DAYS WITH SPECIFIC AMOUNTS, FOR THE MONTH
             pos+=12
         elif fc == 'AG1':
             #PRECIPITATION-ESTIMATED-OBSERVATION
@@ -242,7 +240,7 @@ def parseAddData(line,recl):
             #SNOW-DEPTH
             pos+=14
         elif fc == 'AK1':
-            #SNOW-DEPTH GREATEST DEPTH ON THE GROUND,                
+            #SNOW-DEPTH GREATEST DEPTH ON THE GROUND,
             pos+=12
         elif (fc == 'AL1') or (fc == 'AL2') or (fc == 'AL3') or (fc == 'AL4'):
             # SNOW-ACCUMULATION
@@ -265,23 +263,23 @@ def parseAddData(line,recl):
         elif (fc == 'AY1') or (fc == 'AY2'):
             pos+=5
         elif (fc == 'AZ1') or (fc == 'AZ2'):
-            pos+=5       
+            pos+=5
         elif (fc == 'CB1') or (fc == 'CB2'):
             data['PRECIP_PERIOD']=int(line[pos:pos+2]) # minutes
             data['PRECIP_VOLUME']=float(line[pos:pos+2])/10 # mm
             pos+=2
-        elif (fc == 'CF1') or (fc == 'CF2') or (fc == 'CF3'):   
-             pos+=6
+        elif (fc == 'CF1') or (fc == 'CF2') or (fc == 'CF3'):
+            pos+=6
         elif (fc == 'CG1') or (fc == 'CG2') or (fc == 'CG3'):
-             pos+=8
+            pos+=8
         elif (fc == 'CH1') or (fc == 'CH2'):
             # Relative humidity data
             pos+=9
             data['RH']=float(line[pos:pos+4])/10 # Percent
-            print '!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!'
+            print('!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!')
             pos+=2
         elif (fc == 'CI1'):
-            print '!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!'
+            print('!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!')
             pos+=28
         elif (fc == 'CN1'):
             pos+=18
@@ -386,7 +384,7 @@ def parseAddData(line,recl):
             pos+=13
         elif fc == 'GR1':
             pos+=14
-            
+
         ########################################################################
         # Inserted these miscellaneuosly as they appear
         ########################################################################
@@ -401,7 +399,7 @@ def parseAddData(line,recl):
         elif fc == 'KE1':
             pos+=12
         elif fc == 'MA1':
-            pos+=12   
+            pos+=12
         elif fc == 'MD1':
             pos+=11
         elif fc == 'MG1':
@@ -423,7 +421,7 @@ def parseAddData(line,recl):
             pos+=4
             data['RH1']=int(line[pos:pos+3])
             pos+=5
-            print '!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!'
+            print('!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!')
         elif fc == 'SA1':
             # Sea surface temperature
             pos+=5
@@ -435,20 +433,20 @@ def parseAddData(line,recl):
             pos+=9
         elif fc in ('REM','SYN','MET'):
             # Remarks section
-           return data
-           break    
-        elif len(fc)==0:
-            return data 
-            break
-        else:
-            
-            print 'Unknown identifier: %s' % fc
-            print line
             return data
             break
-                
+        elif len(fc)==0:
+            return data
+            break
+        else:
+
+            print('Unknown identifier: %s' % fc)
+            print(line)
+            return data
+            break
+
     return data
-   
+
 def checkMissingVal(data,missingval,tol=1e-3):
     """ Check the quality of the data"""
     if data >=(missingval-tol) and data <=(missingval+tol):
@@ -460,11 +458,11 @@ def checkMissingVal(data,missingval,tol=1e-3):
 def readRawGZdata(gzfile):
     """
     Read the GZ raw format here
-    """    
+    """
     f = gzip.open(gzfile, 'rb')
     ishdata=[] # Store all of the raw data as a list of dictionaries
     for line in f.readlines():
-        
+
         data={}
         # Parse the line here
         tvc = int(line[0:4]) # total variable character
@@ -479,7 +477,7 @@ def readRawGZdata(gzfile):
         data['airtemp'] = float(line[87:92])/10 # degC
         data['airdewpoint'] = float(line[93:98])/10 # degC
         data['airpres'] = float(line[99:104])/10 # hPa
-        
+
         # Replace missing values with nans
         data['winddir'] = checkMissingVal(data['winddir'],999.0)
         data['windspd'] = checkMissingVal(data['windspd'],999.9)
@@ -487,83 +485,83 @@ def readRawGZdata(gzfile):
         data['airdewpoint'] = checkMissingVal(data['airdewpoint'],999.9)
         data['airpres'] = checkMissingVal(data['airpres'],9999.9)
 
-        
+
         lineadd =  line[108:] # Additional variable data
         # Parse the additional data string
         addldata = parseAddData(lineadd,recl)
-        
+
         # Append the additional data to the dictionary
         data.update(addldata)
         ishdata.append(data)
-    
+
     f.close()
     return ishdata
 
- 
+
 def returnHumidity(dd):
     """ Returns humidity data if it exists in the dictionary"""
     rh = []
-    if dd.has_key('RH'):
+    if 'RH' in dd:
         rh = dd['RH']
-    elif dd.has_key('RH1'):
+    elif 'RH1' in dd:
         rh = dd['RH1']
     else:
         # Convert the dew point temperature to relative humidity
         Pmb = dd['airpres']/10 # hPa to mb
         rh = airsea.relHumFromTdew(dd['airtemp'],dd['airdewpoint'],Pmb)
-    return rh        
-        
+    return rh
+
 def returnRainfall(dd):
     """Returns rainfall data in units kg/m2/s"""
     rho_fresh = 1000 # freshwater density
     rain = []
-    if  dd.has_key('LIQUID_PRECIPITATION_VOLUME'):
+    if  'LIQUID_PRECIPITATION_VOLUME' in dd:
         period = dd['LIQUID_PRECIPITATION_DURATION'] # hours
         volume = dd['LIQUID_PRECIPITATION_VOLUME'] # mm
         rain = volume/(1000*period*3600)*rho_fresh
-    elif dd.has_key('PRECIP_VOLUME'):
+    elif 'PRECIP_VOLUME' in dd:
         period = dd['PRECIP_PERIOD'] # minutes
         volume = dd['PRECIP_VOLUME'] # mm
         rain = volume/(1000*period*60)*rho_fresh
     return rain
-    
+
 def returnCloudCover(dd):
     """Returns cloud cover as a fraction"""
-    
+
     cloud_codeA = {'00':0.0,'01':0.05,'02':0.25,'03':0.4,'04':0.5,'05':0.6,'06':0.75 \
     ,'07':0.95,'08':1.0,'09':np.nan,'10':np.nan,'99':np.nan}
     cloud = []
-    if dd.has_key('SKY_COVER_LAYER'):
+    if 'SKY_COVER_LAYER' in dd:
         cloud_code = dd['SKY_COVER_LAYER']
         if cloud_code in cloud_codeA:
-            cloud = cloud_codeA[cloud_code] 
-            
-    elif dd.has_key('SKY_COVER_SUMMARY'):
+            cloud = cloud_codeA[cloud_code]
+
+    elif 'SKY_COVER_SUMMARY' in dd:
         cloud_code = dd['SKY_COVER_SUMMARY']
         if cloud_code in cloud_codeA:
-            cloud = cloud_codeA[cloud_code] 
-            
-    elif dd.has_key('SKY_COND_OBS'):
+            cloud = cloud_codeA[cloud_code]
+
+    elif 'SKY_COND_OBS' in dd:
         cloud_code = dd['SKY_COND_OBS']
         if cloud_code in cloud_codeA:
-            cloud = cloud_codeA[cloud_code] 
-            
+            cloud = cloud_codeA[cloud_code]
+
     return cloud
-  
+
 def ishData2struct(gzfile,station_id,station_name):
-    """ 
+    """
     Convert the data into a useful structure array (dictionary)
-    """      
+    """
     ### Input Variables
     #gzfile = './rawdata/722420-12923-2012.gz'
     #station_id = '722420-12923'
     #station_name = 'test'
     ###
-    
-    print 'Reading ISH gz file: %s...' % gzfile
-       
+
+    print('Reading ISH gz file: %s...' % gzfile)
+
     ishdata = readRawGZdata(gzfile)
-    
+
     # Create the base structure (dictionary)
     station={}
     station['StationName']=station_name
@@ -577,7 +575,7 @@ def ishData2struct(gzfile,station_id,station_name):
     station['RH'] = {'Data':[],'Time':[],'Units':'percent','Longname':'Relative Humidity','Height':[],'TimeUnits':'minutes since 1970-01-01 00:00:00'}
     station['cloud'] = {'Data':[],'Time':[],'Units':'dimensionless','Longname':'Cloud cover fraction','TimeUnits':'minutes since 1970-01-01 00:00:00'}
     station['rain'] = {'Data':[],'Time':[],'Units':'kg m2 s-1','Longname':'rain fall rate','TimeUnits':'minutes since 1970-01-01 00:00:00'}
-    
+
     # Loop through the ishdata
     ii=0
     basetime = datetime(1970,1,1)
@@ -590,20 +588,20 @@ def ishData2struct(gzfile,station_id,station_name):
         dt = t-basetime
         tobs = dt.total_seconds()/60.0
         #       tobs = (t.toordinal()-basetime.toordinal())*1440.0
-        
+
         # Check for missing values here
-        
+
         # Append the required data fields
         station['Tair']['Data'].append(dd['airtemp'])
         station['Tair']['Time'].append(tobs)
         if ii == 0:
             station['Tair']['Height'] = dd['ele']
-            
+
         station['Pair']['Data'].append(dd['airpres'])
         station['Pair']['Time'].append(tobs)
         if ii == 0:
             station['Pair']['Height'] = dd['ele']
-        
+
         if np.size(dd['windspd']) == np.size(dd['winddir']):
             spd=dd['windspd']
             if spd >= 999: spd=np.NaN
@@ -616,76 +614,76 @@ def ishData2struct(gzfile,station_id,station_name):
             station['Uwind']['Time'].append(tobs)
             if ii == 0:
                 station['Uwind']['Height'] = dd['ele']
-            
+
             station['Vwind']['Data'].append(Vwind)
             station['Vwind']['Time'].append(tobs)
             if ii == 0:
                 station['Vwind']['Height'] = dd['ele']
-            
-        rh = returnHumidity(dd)     
+
+        rh = returnHumidity(dd)
         if np.size(rh) > 0:
-           station['RH']['Data'].append(rh)
-           station['RH']['Time'].append(tobs)
+            station['RH']['Data'].append(rh)
+            station['RH']['Time'].append(tobs)
         if ii == 0:
             station['RH']['Height'] = dd['ele']
-           
+
         rain = returnRainfall(dd)
         if np.size(rain) > 0:
-           station['rain']['Data'].append(rain)
-           station['rain']['Time'].append(tobs)
-               
+            station['rain']['Data'].append(rain)
+            station['rain']['Time'].append(tobs)
+
         cloud = returnCloudCover(dd)
         if np.size(cloud) > 0:
             station['cloud']['Data'].append(cloud)
             station['cloud']['Time'].append(tobs)
-        
+
     # Print a summary
-    print 'File Summary:'
-    print   'No. of Tair observations - %d' % len(station['Tair']['Data'])       
-    print   'No. of Pair observations - %d' % len(station['Pair']['Data']) 
-    print   'No. of Uwind observations - %d' % len(station['Uwind']['Data']) 
-    print   'No. of Vwind observations - %d' % len(station['Vwind']['Data']) 
-    print   'No. of RH observations - %d' % len(station['RH']['Data']) 
-    print   'No. of rain observations - %d' % len(station['rain']['Data']) 
-    print   'No. of cloud observations - %d' % len(station['cloud']['Data']) 
-    print '############# File read successfully################\n'
-        
+    print('File Summary:')
+    print('No. of Tair observations - %d' % len(station['Tair']['Data']))
+    print('No. of Pair observations - %d' % len(station['Pair']['Data']))
+    print('No. of Uwind observations - %d' % len(station['Uwind']['Data']))
+    print('No. of Vwind observations - %d' % len(station['Vwind']['Data']))
+    print('No. of RH observations - %d' % len(station['RH']['Data']))
+    print('No. of rain observations - %d' % len(station['rain']['Data']))
+    print('No. of cloud observations - %d' % len(station['cloud']['Data']))
+    print('############# File read successfully################\n')
+
     return station
-# End of function    
+# End of function
 def getFileNames(latlon,yearrange,localdir):
-    """ 
+    """
     Function to retrieve station names to download from the ftp site (see ftplib.retrievefile)
-    """  
+    """
     # Read the station metadata CSV file
     csvfile = localdir+'/'+'isd-history.csv'
     if not os.path.exists(csvfile):
-        print 'Cannot find station history csv file, downloading...'
+        print('Cannot find station history csv file, downloading...')
         ftpdir = '/pub/data/noaa/'
         ftpsrvr = 'ftp.ncdc.noaa.gov'
         ftp = FTP(ftpsrvr)
-        ftp.login() 
+        ftp.login()
         hisfile = 'isd-history.csv'
         ftp.cwd(ftpdir)
         try:
             ftp.retrbinary('RETR '+hisfile,open(csvfile, 'wb').write)
         except:
-            raise Exception, ' could not download history file.'
-        
-            
+            raise Exception(' could not download history file.')
+
+
     data = stationMeta(csvfile)
     # Create a list of dictionaries each containing: years, filenames and station name
     stations = []
     for la, lo, sta_id, s, e, name  in zip(data['lat'],data['lon'],data['station_id'],data['start'],data['end'],data['name']):
-       if (la >= latlon[2]) & (la <= latlon[3]) & (lo >=latlon[0]) & (lo <= latlon[1]):
-           if len(e) > 0 and len(s) > 0:
-               years = range(max(int(s),yearrange[0]),min(int(e),yearrange[1])+1)
-               if len(years)>0:
-                   filenames = []
-                   for yy in years:
-                       filenames.append(sta_id+'-'+str(yy)+'.gz')
-                   dd = {'station_id':sta_id,'station_name':name,'years':years,'filenames':filenames}
-                   stations.append(dd)
-                   
+        if (la >= latlon[2]) & (la <= latlon[3]) & (lo >=latlon[0]) & (lo <= latlon[1]):
+            if len(e) > 0 and len(s) > 0:
+                years = list(range(max(int(s),yearrange[0]),min(int(e),yearrange[1])+1))
+                if len(years)>0:
+                    filenames = []
+                    for yy in years:
+                        filenames.append(sta_id+'-'+str(yy)+'.gz')
+                    dd = {'station_id':sta_id,'station_name':name,'years':years,'filenames':filenames}
+                    stations.append(dd)
+
     return stations
 # End of function
 
@@ -696,36 +694,34 @@ def dataQC(data,varnames):
     # 2) Variable isn't empty
     # 4) There is an adequate number of "good" data points
     """
-    
+
     # 1) Lat/lon isn't empty
     ii=0
     for dd in data:
         if np.size(dd['Longitude'])<1:
             ii+=1
             data.pop(ii)
-            
+
     # 2) Remove the variable if it is emptyrootgrp = Dataset('test.nc', 'w', format='NETCDF4')
-    ii=-1       
-    for dd in data:
-        ii+=1
-        for v in dd.keys():
-            if v in varnames:        
-                if np.size(dd[v]['Data']) < 1:
-                    data[ii].pop(v)
-    
-    #3) Remove if there is an inadequate number (2) of good points 
     ii=-1
     for dd in data:
         ii+=1
-        for v in dd.keys():
-            if v in varnames:           
+        for v in list(dd.keys()):
+            if v in varnames:
+                if np.size(dd[v]['Data']) < 1:
+                    data[ii].pop(v)
+
+    #3) Remove if there is an inadequate number (2) of good points
+    ii=-1
+    for dd in data:
+        ii+=1
+        for v in list(dd.keys()):
+            if v in varnames:
                 ind = np.isfinite(dd[v]['Data'])
                 if ind.sum() < 2:
-                    data[ii].pop(v)                
-                    
+                    data[ii].pop(v)
+
     return data
-    
-    
+
+
 ###
-
-

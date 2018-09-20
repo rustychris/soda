@@ -57,9 +57,11 @@ from datetime import datetime
 import numpy as np
 
 # Dask stuff
-from dask.distributed import Client, LocalCluster, worker, progress, wait
-
-client = Client()
+#from dask.distributed import Client, LocalCluster, worker, progress, wait
+#
+## Try and connect to a scheduler previously launched
+#print('Connecting to dask scheduler...')
+#client = Client(scheduler_file="~/scheduler.json", asynchronous=False)
 
 # Use cmocean colormaps (these are awesome!!)
 #try:
@@ -587,6 +589,8 @@ class SunPlotPyX(Sundask, QMainWindow):
         fileparts = path[0].split('.')
         filecard = '%s.nc.*'%fileparts[-3]
 
+        print(fileparts)
+        print(filecard)
         self.on_open_file([filecard], newfile=False)
 
 

@@ -36,11 +36,6 @@ class Sunxray(UPlot):
     def __init__(self, ncfile, lazy=False, **kwargs):
         self.__dict__.update(kwargs)
 
-<<<<<<< HEAD
-        self._ds = xr.open_dataset(ncfile, \
-                chunks=self.chunks, \
-                mask_and_scale=True, decode_times=True)
-=======
         try:
             self._ds = xray.open_dataset(ncfile, \
                     chunks=self.chunks,\
@@ -49,7 +44,6 @@ class Sunxray(UPlot):
             self._ds = xray.open_mfdataset(ncfile, \
                     chunks=self.chunks,\
                     mask_and_scale=True, decode_times=True)
->>>>>>> c6d2bae10446ba10d2f81e7bb2cc4661943e0359
 
         if not lazy:
             self._init_grid(**kwargs)
@@ -126,16 +120,16 @@ class Sundask(UPlot):
 
         # Load all of the files into list as xray objects
         #self._myfiles = [Sunxray(url, lazy=True) for url in filenames]
+        filenames = sorted(glob.glob(ncfiles))
 
         def openfile(url):
-            #print(url)
-            ds = xr.open_dataset(url, chunks={'Nk':-1,'Nc':-1,'time':-1})
-            #try:
-            #    ds = xr.open_dataset(url, chunks={'Nk':-1,'Nc':-1,'time':-1})
-            #    #ds = xr.open_dataset(url,)
+            try:
+                print(url)
+                #ds = xr.open_dataset(url, chunks={'Nk':-1,'Nc':-1,'time':-1})
+                ds = xr.open_dataset(url,)
 
-            #except:
-            #    print('Failed to open file %s'%url)
+            except:
+                print('Failed to open file %s'%url)
             
             return ds
         

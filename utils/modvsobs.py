@@ -36,7 +36,7 @@ class ModVsObs(object):
     varname = ' '
     Z=0.0
 
-    def __init__(self,tmod,ymod,tobs,yobs, interpmodel=True, **kwargs):
+    def __init__(self,tmod,ymod,tobs,yobs, interpmodel=True, tinterp='nearest', **kwargs):
         """
         Inputs:
             tmod,tobs - vector of datetime object
@@ -88,12 +88,12 @@ class ModVsObs(object):
 	    #   self.TSmod = TSmod
 	    # Interpolate the modeled value onto the observation time step
 	    if interpmodel:
-		tmod_i, ymod_i = TSmod.interp(tobs[t0:t1],axis=-1,method='nearestmask')
+		tmod_i, ymod_i = TSmod.interp(tobs[t0:t1],axis=-1,method=tinterp)
 		#self.TSmod = timeseries(tmod_i,ymod_i, **kwargs)
 		self.TSmod = timeseries(tobs[t0:t1], ymod_i, **kwargs)
 		self.TSobs = TSobs
 	    else:
-		tobs_i, yobs_i = TSobs.interp(tmod[t0m:t1m],axis=-1,method='nearestmask')
+		tobs_i, yobs_i = TSobs.interp(tmod[t0m:t1m],axis=-1,method=tinterp)
 		#self.TSobs = timeseries(tobs_i,yobs_i, **kwargs)
 		self.TSobs = timeseries(tmod[t0m:t1m], yobs_i, **kwargs)
 		self.TSmod = TSmod

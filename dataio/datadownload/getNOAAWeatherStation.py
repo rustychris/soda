@@ -201,7 +201,8 @@ def parseAddData(line,recl):
     """
     pos = 0
     data={}
-
+    print(line)
+    line = line.decode("utf-8") 
     if 'RHUM'  in line:
         print('!!!!!!!!!!!!! Found Humidity !!!!!!!!!!!!!!!!!!!!!!!')
     for i in range(0,50):
@@ -584,7 +585,7 @@ def ishData2struct(gzfile,station_id,station_name):
             station['Latitude'] = dd['lat']
             station['Longitude'] = dd['lon']
         # Convert the time to a suitable time format
-        t = datetime.strptime(dd['yyyymmdd']+dd['hhmm'],'%Y%m%d%H%M')
+        t = datetime.strptime(dd['yyyymmdd'].decode("utf-8") +dd['hhmm'].decode("utf-8") ,'%Y%m%d%H%M')
         dt = t-basetime
         tobs = dt.total_seconds()/60.0
         #       tobs = (t.toordinal()-basetime.toordinal())*1440.0

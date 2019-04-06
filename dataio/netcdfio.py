@@ -11,9 +11,11 @@ Matt Rayson
 Stanford University
 August 2012
 """
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from netCDF4 import Dataset, num2date
-#import shapefile
+import shapefile
 import numpy as np
 import sqlite3
 

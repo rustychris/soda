@@ -1,11 +1,14 @@
 """
 Tool for converting from a suntans to untrim netcdf formats
 """
-from sunpy import Spatial, Grid
-import othertime
+from ..suntans.sunpy import Spatial, Grid
+from ...utils import othertime
 from datetime import datetime
 from netCDF4 import Dataset
 import numpy as np
+import glob
+import os
+import os.path
 from .untrim_tools import untrim_ugrid as ugrid
 
 import pdb
@@ -98,6 +101,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     ###
     # Step 2: Write the grid variables to a netcdf file
     ###
+    if os.path.exists(outfile): os.unlink(outfile)
+    
     nc = Dataset(outfile,'w',format='NETCDF4_CLASSIC')
 
     # Global variable
@@ -119,8 +124,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     ###
     # Step 3: Initialize all of the grid variables
     ###
-    def create_nc_var(name, dimensions, attdict,data=None, \
-        dtype='f8',zlib=False,complevel=0,fill_value=999999.0):
+    def create_nc_var(name, dimensions, attdict,data=None, 
+                      dtype='f8',zlib=False,complevel=0,fill_value=999999.0):
 
         tmp=nc.createVariable(name, dtype, dimensions,\
             zlib=zlib,complevel=complevel,fill_value=fill_value)
@@ -128,7 +133,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         for aa in list(attdict.keys()):
             tmp.setncattr(aa,attdict[aa])
 
-        if not data==None:
+        if data is not None:
             nc.variables[name][:] = data
 
     # Make sure the masked cells have a value of -1
@@ -186,7 +191,12 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     ###
     # Step 5: Loop through all of the time steps and write the variables
     ###
-    tsteps = sun.getTstep(tstart,tend)
+    if tstart is None:
+        tstart=sun.time[0]
+    if tend is None:
+        tend=sun.time[-1]
+    tsteps=sun.getTstep(tstart,tend)
+    
     tdays = othertime.DaysSince(sun.time,basetime=datetime(1899,12,31))
     for ii, tt in enumerate(tsteps):
         # Convert the time to the untrim formats
@@ -285,11 +295,6 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     print('\t Finished SUNTANS->UnTRIM conversion')
     print(72*'#')
 
-
-
-
-
-
     # close the file
     nc.close()
 
@@ -297,12 +302,24 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 ##############
 # Testing
 ##############
-                                                                            ##################
+
 if __name__=="__main__":
     # Inputs
-    ncfile = '../data/Racetrack_AVG_0000.nc'
-    outfile = '../data/Racetrack_untrim.nc'
-    tstart = '20020629.0000'
-    tend = '20060701.1200'
+    import argparse
 
-    suntans2untrim(ncfile,outfile,tstart,tend)
+    parser=argparse.ArgumentParser(description='Convert SUNTANS output to UnTRIM/ugrid-ish.')
+
+    parser.add_argument("-i", "--input", help="SUNTANS average output",default="input.nc")
+    parser.add_argument("-o", "--output", help="UnTRIM output netcdf", default="output.nc")
+    parser.add_argument("-s", "--start", help="Time of start, YYYYMMDD.HHMM",default=None)
+    parser.add_argument("-e", "--end", help="Time of start, YYYYMMDD.HHMM",default=None)
+    parser.add_argument("-v", "--verbose",help="Increase verbosity",default=1,action='count')
+
+    args=parser.parse_args()
+
+    # ncfile = '../data/Racetrack_AVG_0000.nc'
+    # outfile = '../data/Racetrack_untrim.nc'
+    # tstart = '20020629.0000'
+    # tend = '20060701.1200'
+
+    suntans2untrim(args.input, args.output, args.start, args.end)

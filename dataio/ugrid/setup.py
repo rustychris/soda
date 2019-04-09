@@ -19,7 +19,8 @@ from Cython.Build import cythonize
 import os
 import numpy
 
-os.environ["CC"]='cl'
+# RH: on linux, default CC is fine, generally don't have cl.
+# os.environ["CC"]='cl'
 
 extensions =[
     Extension("ugridutils",["ugridutils.pyx"],

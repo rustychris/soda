@@ -16,21 +16,20 @@ from scipy import spatial
 from scipy import sparse
 import operator
 
-import xray
+import xarray as xray
 
 from matplotlib import tri
 import matplotlib.pyplot as plt
 from matplotlib.collections import PolyCollection, LineCollection
 import matplotlib.animation as animation
 
-from soda.utils import othertime
-from soda.dataio.suntans.suntans_ugrid import ugrid
-from soda.utils.timeseries import timeseries
-from soda.utils.ufilter import ufilter
-from soda.utils.maptools import utm2ll
-from soda.dataio.ugrid.hybridgrid import HybridGrid, circumcenter
-from soda.dataio.ugrid.gridsearch import GridSearch
-
+from ...utils import othertime
+from .suntans_ugrid import ugrid
+from ...utils.timeseries import timeseries
+from ...utils.ufilter import ufilter
+from ...utils.maptools import utm2ll
+from ..ugrid.hybridgrid import HybridGrid, circumcenter
+from ..ugrid.gridsearch import GridSearch
 
 
 import pdb
@@ -132,6 +131,9 @@ class Grid(object):
         #self.cells[self.cells.mask]=0
         #self.grad[self.grad.mask]=0
         #self.face[self.face.mask]=0
+
+        # RH
+        self.maskgrid()
         self.xy = self.cellxy()
 
 
@@ -274,10 +276,12 @@ class Grid(object):
         if 'mark' not in self.__dict__:
             self.mark = np.zeros((self.Ne))
 
-        if type(self.cells) != type(np.ma.MaskedArray()):
-            self.maskgrid()
-        else:
+        # RH in some cases cells is loaded as a masked array, but has no mask.
+        # in that case, manually fix the mask.
+        if isinstance(self.cells,np.ma.MaskedArray) and (self.cells.mask is not False):
             self.cellmask=self.cells.mask
+        else:
+            self.maskgrid()
 
         #if type(self.DEF) == type(np.ma.MaskedArray()):
         #    if np.all(self.DEF.mask):
@@ -497,33 +501,15 @@ class Grid(object):
 
         Used by spatial ploting routines
         """
-        xp = np.zeros((self.Nc,self.maxfaces+1))
-        yp = np.zeros((self.Nc,self.maxfaces+1))
-
-        cells=self.cells.copy()
-        cells[self.cells.mask]=0
-
-        xp[:,:self.maxfaces]=self.xp[cells]
-        xp[list(range(self.Nc)),self.nfaces]=self.xp[cells[:,0]]
-        yp[:,:self.maxfaces]=self.yp[cells]
-        yp[list(range(self.Nc)),self.nfaces]=self.yp[cells[:,0]]
-
-        xp[self.cells.mask]==0
-        yp[self.cells.mask]==0
-
         xy = np.zeros((self.maxfaces+1,2))
         def _closepoly(ii):
-            nf=self.nfaces[ii]+1
-            xy[:nf,0]=xp[ii,:nf]
-            xy[:nf,1]=yp[ii,:nf]
-            return xy[:nf,:].copy()
+            nf=self.nfaces[ii]
+            xy[:nf,0]=self.xp[self.cells[ii,:nf]]
+            xy[:nf,1]=self.yp[self.cells[ii,:nf]]
+            xy[nf,:]=xy[0,:]
+            return xy[:nf+1,:].copy()
 
         return [_closepoly(ii) for ii in range(self.Nc)]
-
-
-        # Old Method
-        #return [closePoly(self.xp[self.cells[ii,0:self.nfaces[ii]]],\
-        #    self.yp[self.cells[ii,0:self.nfaces[ii]]]) for ii in range(self.Nc)]
 
     def saveBathy(self,filename):
         """
@@ -1938,20 +1924,21 @@ class Spatial(Grid):
 
     def getTstep(self,tstart,tend,timeformat='%Y%m%d.%H%M'):
         """
-        Returns a vector of the time indices between tstart and tend
+        Returns a vector of the time indices for one or more time stamps
 
-        tstart and tend can be string with format=timeformat ['%Y%m%d.%H%M' - default]
-
-        Else tstart and tend can be datetime objects
+        each time stamp can be a string with format=timeformat ['%Y%m%d.%H%M' - default]
+        or datetime objects
         """
-
+        
         try:
             t0 = datetime.strptime(tstart,timeformat)
+        except:
+            t0 = tstart # Assume the time is already in datetime format
+            
+        try:
             t1 = datetime.strptime(tend,timeformat)
         except:
-            # Assume the time is already in datetime format
-            t0 = tstart
-            t1 = tend
+            t1 = tend # Assume the time is already in datetime format
 
         n1 = othertime.findNearest(t0,self.time)
         n2 = othertime.findNearest(t1,self.time)

@@ -2432,7 +2432,12 @@ class Spatial(Grid):
         Ne = etop.shape[0]
 
         # Find dzz of the top cell
-        dztop = self.dz[etop]+etaedge
+        # RH: not correct - dz[etop] is the untruncated thickness of just
+        # layer etop.
+        # dztop = self.dz[etop]+etaedge
+        # -- instead, sum dz to get the depth to the lower bound of that
+        # layer, then we can difference with etaedge.
+        dztop = np.cumsum(self.dz)[etop]+etaedge
 
         dzf = np.repeat(self.dz[:,np.newaxis],Ne,axis=1)
 
@@ -2444,6 +2449,10 @@ class Spatial(Grid):
             dzf[0:etop[ii],ii]=0.0
             dzf[self.Nke[ii]::,ii]=0.0
 
+        if np.any(dzf<0.0):
+            import pdb
+            pdb.set_trace()
+        
         return dzf
 
 

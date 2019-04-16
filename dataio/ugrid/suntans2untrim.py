@@ -93,7 +93,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     sun.facemark = np.zeros((sun.Nc,),dtype=np.int)
 
     # Update the grad variable from the ascii grid file if supplied
-    if not grdfile == None:
+    if grdfile is not None:
         print('Updating grid with ascii values...')
         grd = Grid(grdfile)
         sun.grad = grd.grad[:,::-1]
@@ -156,7 +156,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         # Reverse the order of grad(???)
         if vv=='grad':
-            sun[vv][:]=sun[vv][:,::-1]
+            # sun[vv][:]=sun[vv][:,::-1]
+            # RH this appears to be causing problems in FISH_PTM.
+            # trying without this...
+            print("RH: leaving grad order alone")
 
         ## Fix one-based indexing
         #if vv in ['cells','edges','grad']:
@@ -235,8 +238,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         vname = 'h_flow_avg'
         #print '\tVariable: %s...'%vname
-        nc.variables[vname][:,:,ii]=U.swapaxes(0,1)[:,::-1]
-
+        # RH: in the past this code flipped grad, and assigned U as-is.
+        #  better to flip the sign here, but leave grad alone so that boundary
+        #  edges do not get a -1 in the first index.
+        nc.variables[vname][:,:,ii]=-U.swapaxes(0,1)[:,::-1]
 
         vname = 'v_flow_avg'
         #print '\tVariable: %s...'%vname
@@ -249,6 +254,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         #print '\tVariable: %s...'%vname
         #dzf = sun.loadData(variable='dzf')
         tmp3d = dzf*sun.df
+        assert np.all(tmp3d>=0.0)
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'Mesh2_face_water_volume'

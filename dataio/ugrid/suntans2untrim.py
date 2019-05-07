@@ -90,8 +90,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     sun.de = sun.get_edgevar(sun.dv,method='min')
     sun.mark[sun.mark==5]=0
     sun.mark[sun.mark==3]=2
-    sun.facemark = np.zeros((sun.Nc,),dtype=np.int)
-
+    sun.facemark = sun.get_facemark() 
+    
     # Update the grad variable from the ascii grid file if supplied
     if grdfile is not None:
         print('Updating grid with ascii values...')

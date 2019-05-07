@@ -726,9 +726,7 @@ class Grid(object):
         face[mask]=0
         facemark = self.mark[face]
         facemark[mask]=0
-        return np.min(np.max(facemark,axis=-1),3)
-
-
+        return np.minimum(np.max(facemark,axis=-1),3)
 
     def setDepth(self,vertspace):
         """

@@ -14,7 +14,7 @@ from scipy import sparse
 import operator as op
 import matplotlib.pyplot as plt
 
-from soda.dataio.ugrid import ugridutils
+from . import ugridutils
 import pdb
 
 ###

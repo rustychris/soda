@@ -89,9 +89,14 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     # Calculate some other variables
     sun.de = sun.get_edgevar(sun.dv,method='min')
     sun.mark[sun.mark==5]=0
-    sun.mark[sun.mark==3]=2
-    sun.facemark = sun.get_facemark() 
-    
+    # This seems to lose flow vs. open information.
+    # sun.mark[sun.mark==3]=2
+
+    sun.facemark = sun.get_facemark()
+    # This will come back with polygons adjacent to closed boundary
+    # set to 1, but for PTM I think that should be 0.
+    sun.facemark[ sun.facemark==1 ] = 0
+
     # Update the grad variable from the ascii grid file if supplied
     if grdfile is not None:
         print('Updating grid with ascii values...')

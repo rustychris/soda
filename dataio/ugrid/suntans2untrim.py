@@ -234,11 +234,15 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         vname = 'Mesh2_salinity_3d'
         #print '\tVariable: %s...'%vname
         tmp3d = sun.loadData(variable='salt' )
+        if sun.Nkmax==1:
+            tmp3d=tmp3d[None,:]
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'Mesh2_vertical_diffusivity_3d'
         #print '\tVariable: %s...'%vname
         tmp3d = sun.loadData(variable='nu_v' )
+        if sun.Nkmax==1:
+            tmp3d=tmp3d[None,:]
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'h_flow_avg'
@@ -246,11 +250,15 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         # RH: in the past this code flipped grad, and assigned U as-is.
         #  better to flip the sign here, but leave grad alone so that boundary
         #  edges do not get a -1 in the first index.
+        if sun.Nkmax==1:
+            U=U[None,:]
         nc.variables[vname][:,:,ii]=-U.swapaxes(0,1)[:,::-1]
 
         vname = 'v_flow_avg'
         #print '\tVariable: %s...'%vname
         tmp3d = sun.loadData(variable='w' ) * sun.Ac # m^3/s
+        if sun.Nkmax==1:
+            tmp3d=tmp3d[None,:]
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         # Need to calculate a few terms for the other variables

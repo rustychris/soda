@@ -1252,6 +1252,9 @@ class Spatial(Grid):
         if variable is None:
             variable=self.variable
 
+        if not self.hasVar(variable):
+            return None
+        
         # Get the indices of the horizontal dimension
         if self.hasDim(variable,self.griddims['Ne']) and self.j is None:
             j=list(range(self.Ne))

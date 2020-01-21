@@ -234,9 +234,13 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         vname = 'Mesh2_salinity_3d'
         #print '\tVariable: %s...'%vname
         tmp3d = sun.loadData(variable='salt' )
-        if sun.Nkmax==1:
-            tmp3d=tmp3d[None,:]
-        nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
+        if tmp3d is None:
+            val=0.0
+        else:
+            if sun.Nkmax==1:
+                tmp3d=tmp3d[None,:]
+            val=tmp3d.swapaxes(0,1)[:,::-1]
+        nc.variables[vname][:,:,ii]=val
 
         vname = 'Mesh2_vertical_diffusivity_3d'
         #print '\tVariable: %s...'%vname

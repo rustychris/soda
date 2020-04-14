@@ -1246,8 +1246,7 @@ class Spatial(Grid):
 
     def loadDataRaw(self,variable=None,setunits=True):
         """
-            Load the specified suntans variable data as a vector
-
+        Load the specified suntans variable data as a vector
         """
         if variable is None:
             variable=self.variable
@@ -2463,8 +2462,8 @@ class Spatial(Grid):
         """
 
         # Find the layer of the top cell
-        ctop = np.searchsorted(self.z_w,-eta)
-        ctop[ctop>0] -= 1
+        ctop = np.searchsorted(self.z_w[1:],-eta)
+        # ctop[ctop>0] -= 1
         return ctop
 
     def getetop(self,eta,method='max',U=None,j=None):
@@ -2477,8 +2476,9 @@ class Spatial(Grid):
             eta_edge = eta
 
         # Find the layer of the top cell
-        etop = np.searchsorted(self.z_w,-eta_edge)
-        etop[etop>0] -= 1
+        # RH slightly cleaner -- first entry of z_w is not useful
+        etop = np.searchsorted(self.z_w[1:],-eta_edge)
+        #etop[etop>0] -= 1
         return etop, eta_edge
 
 

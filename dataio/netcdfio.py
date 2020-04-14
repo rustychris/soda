@@ -15,7 +15,11 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from netCDF4 import Dataset, num2date
-import shapefile
+try:
+    import shapefile
+except ImportError:
+    print("shapefile (pyshp) missing.  Will not be able to generate some outputs")
+    
 import numpy as np
 import sqlite3
 

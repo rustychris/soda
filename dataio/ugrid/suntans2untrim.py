@@ -285,35 +285,67 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         tmp3d = np.repeat(sun.Ac[np.newaxis,...],sun.Nkmax,axis=0)
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
+        #import pdb
+        #pdb.set_trace()
         # UnTRIM references from bottom to top i.e.
         # k = 0 @ bed ; k = Nkmax-1 @ top
+        # but the indices are expected to be 1-based, and top is inclusive
+        # [per ESG, 2020-04-14]
 
         vname = 'Mesh2_edge_bottom_layer'
         #print '\tVariable: %s...'%vname
-        #tmp2d = sun.Nkmax-sun.Nke # zero based
-        tmp2d = sun.Nkmax-sun.Nke+1 # one based
-        nc.variables[vname][:,ii]=tmp2d
+        kbj=sun.Nkmax-sun.Nke+1 # one based
+        nc.variables[vname][:,ii]=kbj
 
         vname = 'Mesh2_edge_top_layer'
         #print '\tVariable: %s...'%vname
+        import pdb
+        pdb.set_trace()
         etop = sun.loadData(variable='etop')
-        #tmp2d = sun.Nkmax-etop-1 # zero based
-        tmp2d = sun.Nkmax-etop # one based
+        tmp2d = sun.Nkmax-etop-1 # one based, but inclusive, but >=kbj.
+        dry=tmp2d<kbj 
+        tmp2d[dry]=kbj[dry]
         nc.variables[vname][:,ii]=tmp2d
 
+        if 1:# paranoid testing:
+            # array() to drop the mask
+            kbj0=np.array(kbj)-1 # 0-based index of deepest FV above the bed.
+            ktj0=np.array(tmp2d)-1 # 0-based index of upper-most wet FV.
+            for j in range(200):
+                # NOTE! Mesh2_edge_wet_area can have an extra layer on top.
+                Q=nc.variables['h_flow_avg'][j,:,ii]
+                assert (kbj0[j]==0) or np.all( Q[:kbj0[j]].mask )
+                assert np.all( ~Q[kbj0[j]:ktj0[j]+1].mask )
+                assert np.all( ~Q[kbj0[j]:].mask )
+                above_surface=Q[ktj0[j]+1:].data
+                assert np.all( np.isnan(above_surface)|(above_surface==0.0) )
+                
         vname = 'Mesh2_face_bottom_layer'
-        #print '\tVariable: %s...'%vname
-        #tmp2d = sun.Nkmax-sun.Nk + 1 # zero based
-        tmp2d = sun.Nkmax-sun.Nk # one based
-        nc.variables[vname][:,ii]=tmp2d
+        # This is confusing because Nk has a different meaning.  It has a max
+        # of 49, one less than Nkmax or the max of Nke.
+        kbi=sun.Nkmax-sun.Nk # one based
+        nc.variables[vname][:,ii]=kbi
 
         vname = 'Mesh2_face_top_layer'
-        #print '\tVariable: %s...'%vname
         ctop = sun.loadData(variable='ctop')
-        #tmp2d = sun.Nkmax-ctop-1 # zero based
-        tmp2d = sun.Nkmax-ctop # one based
+        tmp2d = sun.Nkmax-ctop-1 # one based, but inclusive, and >= kbi
+        dry=tmp2d<kbi
+        tmp2d[dry]=kbi[dry]
         nc.variables[vname][:,ii]=tmp2d
 
+        if ii>1:# paranoid testing:
+            # array() to drop the mask
+            kbi0=np.array(kbi)-1 # 0-based index of deepest FV above the bed.
+            kti0=np.array(tmp2d)-1 # 0-based index of upper-most wet FV.
+            for i in range(200):
+                V=nc.variables['Mesh2_face_water_volume'][i,:,ii]
+                # apparently V is not masked, it just gets 0 below the bed.
+                assert (kbi0[i]==0) or np.all( V[:kbi0[i]]==0.0 )
+                assert np.all( ~V[kbi0[i]:kti0[i]+1].mask )
+                assert np.all( ~V[kbi0[i]:].mask )
+                above_surface=V[kti0[i]+1:].data
+                assert np.all( np.isnan(above_surface)|(above_surface==0.0) )
+        
     print(72*'#')
     print('\t Finished SUNTANS->UnTRIM conversion')
     print(72*'#')
@@ -346,3 +378,4 @@ if __name__=="__main__":
     # tend = '20060701.1200'
 
     suntans2untrim(args.input, args.output, args.start, args.end)
+

@@ -299,21 +299,44 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         vname = 'Mesh2_edge_top_layer'
         #print '\tVariable: %s...'%vname
-        import pdb
-        pdb.set_trace()
         etop = sun.loadData(variable='etop')
-        tmp2d = sun.Nkmax-etop-1 # one based, but inclusive, but >=kbj.
-        dry=tmp2d<kbj 
-        tmp2d[dry]=kbj[dry]
-        nc.variables[vname][:,ii]=tmp2d
+        ktj = sun.Nkmax-etop # one based, but inclusive, but >=kbj.
+
+        if 1: # force ktj up to include edges with flow
+            # etop is based on instantaneous eta, but *probably* should
+            # reflect the highest elevation edge that was wet during the
+            # preceding interval. Actually in the untrim code it is also
+            # instantaneous, though PTM maybe treats it as integrated.
+            Q_j=nc.variables['h_flow_avg'][:,:,ii]
+            Q_j_valid=(~Q_j.mask) & np.isfinite(Q_j.data) & (Q_j.data!=0.0)
+            znums=np.arange(Q_j.shape[1])
+            ktj_from_Q=np.where(Q_j_valid,1+znums[None,:],-1).max(axis=1)
+        
+            # ktj depends on etop, which depends on an instantaneous
+            # eta. but *probably* etop should reflect the range of valid
+            # edges over the integration period. this code is a bit ad-hoc,
+            # but makes sure that kt does not omit any edge-layes with flow.
+            # report how many.. ktj might be wrong.
+            n_ktj_bump=(ktj_from_Q>ktj).sum()
+            if n_kjt_bump>0:
+                print("%d of %d ktj had to be bumped up"%(n_ktj_bump,len(ktj)))
+                ktj=np.maximum(ktj,ktj_from_Q)
+                
+        dry=ktj<kbj
+        # This should be okay, but *most* edges that are dry in untrim get
+        # ktj=0.
+        ktj[dry]=kbj[dry]
+        nc.variables[vname][:,ii]=ktj
 
         if 1:# paranoid testing:
             # array() to drop the mask
             kbj0=np.array(kbj)-1 # 0-based index of deepest FV above the bed.
-            ktj0=np.array(tmp2d)-1 # 0-based index of upper-most wet FV.
-            for j in range(200):
+            ktj0=np.array(ktj)-1 # 0-based index of upper-most wet FV.
+            n_j=nc.dimensions['nMesh2_edge'].size
+            Q_j=nc.variables['h_flow_avg'][:,:,ii]
+            for j in range(n_j):
                 # NOTE! Mesh2_edge_wet_area can have an extra layer on top.
-                Q=nc.variables['h_flow_avg'][j,:,ii]
+                Q=Q_j[j,:]
                 assert (kbj0[j]==0) or np.all( Q[:kbj0[j]].mask )
                 assert np.all( ~Q[kbj0[j]:ktj0[j]+1].mask )
                 assert np.all( ~Q[kbj0[j]:].mask )
@@ -323,12 +346,14 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         vname = 'Mesh2_face_bottom_layer'
         # This is confusing because Nk has a different meaning.  It has a max
         # of 49, one less than Nkmax or the max of Nke.
+        # It's an oddity in sunpy -- it is explicity decremented to reflect the
+        # 0-based index of the bottom cell.
         kbi=sun.Nkmax-sun.Nk # one based
         nc.variables[vname][:,ii]=kbi
 
         vname = 'Mesh2_face_top_layer'
         ctop = sun.loadData(variable='ctop')
-        tmp2d = sun.Nkmax-ctop-1 # one based, but inclusive, and >= kbi
+        tmp2d = sun.Nkmax-ctop # one based, but inclusive, and >= kbi
         dry=tmp2d<kbi
         tmp2d[dry]=kbi[dry]
         nc.variables[vname][:,ii]=tmp2d
@@ -337,8 +362,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
             # array() to drop the mask
             kbi0=np.array(kbi)-1 # 0-based index of deepest FV above the bed.
             kti0=np.array(tmp2d)-1 # 0-based index of upper-most wet FV.
-            for i in range(200):
-                V=nc.variables['Mesh2_face_water_volume'][i,:,ii]
+            n_i=nc.dimensions['nMesh2_face'].size
+            V_i=nc.variables['Mesh2_face_water_volume'][:,:,ii]
+            for i in range(n_i):
+                V=V_i[i,:]
                 # apparently V is not masked, it just gets 0 below the bed.
                 assert (kbi0[i]==0) or np.all( V[:kbi0[i]]==0.0 )
                 assert np.all( ~V[kbi0[i]:kti0[i]+1].mask )

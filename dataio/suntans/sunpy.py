@@ -223,7 +223,6 @@ class Grid(object):
         self.maskgrid()
 
     def __loadGrdNc(self):
-
         """
         Load the grid variables into the object from a netcdf file
 
@@ -2411,8 +2410,19 @@ class Spatial(Grid):
         dzz[ctop,list(range(self.Nc))]=dztop
 
         # Find dzz at the bottom
-        dzbot = self.dv - z[self.Nk-1]
-        dzz[self.Nk,list(range(self.Nc))]=dzbot
+        # this used to use self.Nk-1, but Nk is already adjusted to be
+        # the 0-based index of the bottom layer.
+        # z[k] is the bottom elevation of the k'th layer.
+        if 0: # Fails for Nk==ctop!
+            dzbot = self.dv - z[self.Nk-1]
+            dzz[self.Nk,list(range(self.Nc))]=dzbot
+        else:
+            # just trim the bottom.
+            # how much deeper is the bottom of the layer than the bottom
+            # of the cell.
+            dzbot_trim=z[self.Nk] - self.dv
+            # adjust dzz by that amount
+            dzz[self.Nk,list(range(self.Nc))] -= dzbot_trim
 
         # Mask the cells
         Nk=self.Nk+1

@@ -224,8 +224,9 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         eta = sun.loadData(variable='eta' )
         U = sun.loadData(variable='U_F' )
         dzz = sun.getdzz(eta)
+        assert np.all(dzz>=0)
         dzf = sun.getdzf(eta)
-
+        assert np.all(dzf>=0)
 
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
@@ -278,6 +279,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         #print '\tVariable: %s...'%vname
         #dzz = sun.loadData(variable='dzz')
         tmp3d = dzz*sun.Ac
+        assert np.all(dzz>=0)
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'Mesh2_face_wet_area'
@@ -299,8 +301,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         vname = 'Mesh2_edge_top_layer'
         #print '\tVariable: %s...'%vname
-        import pdb
-        pdb.set_trace()
+        #import pdb
+        #pdb.set_trace()
         etop = sun.loadData(variable='etop')
         tmp2d = sun.Nkmax-etop-1 # one based, but inclusive, but >=kbj.
         dry=tmp2d<kbj 

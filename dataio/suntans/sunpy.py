@@ -2432,7 +2432,7 @@ class Spatial(Grid):
 
         return dzz
 
-    def getdzf(self,eta,U=None,method='max',j=None):
+    def getdzf(self,eta,U=None,method='max',j=None,return_etop=False):
         """
         Calculate the edge-centred vertical grid spacing based
         on the free surface height only
@@ -2462,8 +2462,11 @@ class Spatial(Grid):
         if np.any(dzf<0.0):
             import pdb
             pdb.set_trace()
-        
-        return dzf
+
+        if return_etop:
+            return dzf,etop
+        else:
+            return dzf
 
 
     def getctop(self,eta):

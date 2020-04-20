@@ -130,7 +130,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     # Step 3: Initialize all of the grid variables
     ###
     def create_nc_var(name, dimensions, attdict,data=None, 
-                      dtype='f8',zlib=False,complevel=0,fill_value=999999.0):
+                      dtype='f8',zlib=False,complevel=0,fill_value=None):
 
         tmp=nc.createVariable(name, dtype, dimensions,\
             zlib=zlib,complevel=complevel,fill_value=fill_value)
@@ -193,8 +193,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     for vname  in varnames:
         print('Creating variable %s...'%(vname))
 
+        # used to set fill value, but that complicates some debugging, and departs
+        # from what untrim does.
         create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
-            dtype=ugrid[vname]['dtype'],zlib=True,complevel=1,fill_value=999999.)
+            dtype=ugrid[vname]['dtype'],zlib=True,complevel=1)
 
     ###
     # Step 5: Loop through all of the time steps and write the variables
@@ -222,16 +224,69 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         ###
         # Compute a few terms first
         eta = sun.loadData(variable='eta' )
+
+        if ii<2:
+            # true average not defined for ii=0
+            # not sure why still nan at ii=1
+            eta_avg=eta
+        else:
+            eta_avg = sun.loadData(variable='eta_avg')
         U = sun.loadData(variable='U_F' )
         dzz = sun.getdzz(eta)
         assert np.all(dzz>=0)
-        dzf = sun.getdzf(eta)
+        dzf,etop = sun.getdzf(eta_avg,return_etop=True)
         assert np.all(dzf>=0)
 
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
         nc.variables[vname][:,ii]=eta
 
+        # UnTRIM references from bottom to top i.e.
+        # k = 0 @ bed ; k = Nkmax-1 @ top
+        # but the indices are expected to be 1-based, and top is inclusive
+        # [per ESG, 2020-04-14]
+
+        vname = 'Mesh2_edge_bottom_layer'
+        #print '\tVariable: %s...'%vname
+        kbj=sun.Nkmax-sun.Nke+1 # one based
+        nc.variables[vname][:,ii]=kbj
+
+        vname = 'Mesh2_edge_top_layer'
+        #print '\tVariable: %s...'%vname
+        ktj = sun.Nkmax-etop # one based, but inclusive, but >=kbj.
+        if 0: # OLD # force ktj up to include edges with flow
+            # etop is based on instantaneous eta, but *probably* should
+            # reflect the highest elevation edge that was wet during the
+            # preceding interval. Actually in the untrim code it is also
+            # instantaneous, though PTM maybe treats it as integrated.
+            Q_j=nc.variables['h_flow_avg'][:,:,ii]
+            Q_j_valid=(~Q_j.mask) & np.isfinite(Q_j.data) & (Q_j.data!=0.0)
+            znums=np.arange(Q_j.shape[1])
+            ktj_from_Q=np.where(Q_j_valid,1+znums[None,:],-1).max(axis=1)
+        
+            # ktj depends on etop, which depends on an instantaneous
+            # eta. but *probably* etop should reflect the range of valid
+            # edges over the integration period. this code is a bit ad-hoc,
+            # but makes sure that kt does not omit any edge-layes with flow.
+            # report how many.. ktj might be wrong.
+            n_ktj_bump=(ktj_from_Q>ktj).sum()
+            if n_ktj_bump>0:
+                print("%d of %d ktj had to be bumped up"%(n_ktj_bump,len(ktj)))
+                ktj=np.maximum(ktj,ktj_from_Q)
+                
+        dry=ktj<kbj
+        # This should be okay, but *most* edges that are dry in untrim get
+        # ktj=0.
+        ktj[dry]=kbj[dry]
+        nc.variables[vname][:,ii]=ktj
+        
+        vname = 'Mesh2_edge_wet_area'
+        #print '\tVariable: %s...'%vname
+        #dzf = sun.loadData(variable='dzf')
+        tmp3d = dzf*sun.df
+        assert np.all(tmp3d>=0.0)
+        nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
+        
         vname = 'Mesh2_salinity_3d'
         #print '\tVariable: %s...'%vname
         tmp3d = sun.loadData(variable='salt' )
@@ -250,6 +305,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
             tmp3d=tmp3d[None,:]
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
+
         vname = 'h_flow_avg'
         #print '\tVariable: %s...'%vname
         # RH: in the past this code flipped grad, and assigned U as-is.
@@ -257,6 +313,13 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         #  edges do not get a -1 in the first index.
         if sun.Nkmax==1:
             U=U[None,:]
+        U=np.ma.filled(U,0.0) # more consistent with untrim output
+        # collapse U above etop to etop.
+        # with eta_avg used above the minimum() shouldn't be necessary,
+        # but would rather catch a bug than lose some flow silently
+        for j,ktop in enumerate(np.minimum(etop,sun.Nke-1)):
+            U[ktop,j]+=U[:ktop,j].sum()
+            U[:ktop,j]=0.0
         nc.variables[vname][:,:,ii]=-U.swapaxes(0,1)[:,::-1]
 
         vname = 'v_flow_avg'
@@ -267,13 +330,6 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         # Need to calculate a few terms for the other variables
-
-        vname = 'Mesh2_edge_wet_area'
-        #print '\tVariable: %s...'%vname
-        #dzf = sun.loadData(variable='dzf')
-        tmp3d = dzf*sun.df
-        assert np.all(tmp3d>=0.0)
-        nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
         vname = 'Mesh2_face_water_volume'
         #print '\tVariable: %s...'%vname
@@ -287,62 +343,19 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         tmp3d = np.repeat(sun.Ac[np.newaxis,...],sun.Nkmax,axis=0)
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
-        #import pdb
-        #pdb.set_trace()
-        # UnTRIM references from bottom to top i.e.
-        # k = 0 @ bed ; k = Nkmax-1 @ top
-        # but the indices are expected to be 1-based, and top is inclusive
-        # [per ESG, 2020-04-14]
-
-        vname = 'Mesh2_edge_bottom_layer'
-        #print '\tVariable: %s...'%vname
-        kbj=sun.Nkmax-sun.Nke+1 # one based
-        nc.variables[vname][:,ii]=kbj
-
-        vname = 'Mesh2_edge_top_layer'
-        #print '\tVariable: %s...'%vname
-        etop = sun.loadData(variable='etop')
-        ktj = sun.Nkmax-etop # one based, but inclusive, but >=kbj.
-
-        if 1: # force ktj up to include edges with flow
-            # etop is based on instantaneous eta, but *probably* should
-            # reflect the highest elevation edge that was wet during the
-            # preceding interval. Actually in the untrim code it is also
-            # instantaneous, though PTM maybe treats it as integrated.
-            Q_j=nc.variables['h_flow_avg'][:,:,ii]
-            Q_j_valid=(~Q_j.mask) & np.isfinite(Q_j.data) & (Q_j.data!=0.0)
-            znums=np.arange(Q_j.shape[1])
-            ktj_from_Q=np.where(Q_j_valid,1+znums[None,:],-1).max(axis=1)
-        
-            # ktj depends on etop, which depends on an instantaneous
-            # eta. but *probably* etop should reflect the range of valid
-            # edges over the integration period. this code is a bit ad-hoc,
-            # but makes sure that kt does not omit any edge-layes with flow.
-            # report how many.. ktj might be wrong.
-            n_ktj_bump=(ktj_from_Q>ktj).sum()
-            if n_kjt_bump>0:
-                print("%d of %d ktj had to be bumped up"%(n_ktj_bump,len(ktj)))
-                ktj=np.maximum(ktj,ktj_from_Q)
-                
-        dry=ktj<kbj
-        # This should be okay, but *most* edges that are dry in untrim get
-        # ktj=0.
-        ktj[dry]=kbj[dry]
-        nc.variables[vname][:,ii]=ktj
-
-        if 1:# paranoid testing:
+        if 0:# paranoid testing:
             # array() to drop the mask
             kbj0=np.array(kbj)-1 # 0-based index of deepest FV above the bed.
             ktj0=np.array(ktj)-1 # 0-based index of upper-most wet FV.
             n_j=nc.dimensions['nMesh2_edge'].size
-            Q_j=nc.variables['h_flow_avg'][:,:,ii]
+            Q_j=np.ma.filled(nc.variables['h_flow_avg'][:,:,ii], np.nan)
             for j in range(n_j):
                 # NOTE! Mesh2_edge_wet_area can have an extra layer on top.
                 Q=Q_j[j,:]
-                assert (kbj0[j]==0) or np.all( Q[:kbj0[j]].mask )
-                assert np.all( ~Q[kbj0[j]:ktj0[j]+1].mask )
-                assert np.all( ~Q[kbj0[j]:].mask )
-                above_surface=Q[ktj0[j]+1:].data
+                assert (kbj0[j]==0) or np.all( Q[:kbj0[j]]==0 )
+                # assert np.all( ~Q[kbj0[j]:ktj0[j]+1].mask )
+                # assert np.all( ~Q[kbj0[j]:].mask )
+                above_surface=Q[ktj0[j]+1:]
                 assert np.all( np.isnan(above_surface)|(above_surface==0.0) )
                 
         vname = 'Mesh2_face_bottom_layer'
@@ -360,7 +373,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         tmp2d[dry]=kbi[dry]
         nc.variables[vname][:,ii]=tmp2d
 
-        if ii>1:# paranoid testing:
+        if False and ii>1:# paranoid testing:
             # array() to drop the mask
             kbi0=np.array(kbi)-1 # 0-based index of deepest FV above the bed.
             kti0=np.array(tmp2d)-1 # 0-based index of upper-most wet FV.

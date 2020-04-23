@@ -76,7 +76,9 @@ varnames = ['Mesh2_salinity_3d',\
 
 FILLVALUE=-9999
 
-def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
+@profile
+def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
+                   dzmin=0.001):
     """
     Converts a suntans averages netcdf file into untrim format
     for use in particle tracking
@@ -122,7 +124,6 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         else:
             nc.createDimension(untrim_griddims[dd],sun[dd])
 
-
     for dd in other_dims:
         nc.createDimension(dd,other_dims[dd])
 
@@ -155,7 +156,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
 
         # add dz_min attribute to z_r variable
         if vv == 'z_r':
-            ugrid[vname]['attributes'].update({'dz_min':1e-5})
+            # This used to default to 1e-5. Untrim uses 1e-3 (at least that's
+            # what's in the output file).  This value is interpreted most like
+            # dzmin_surface of the suntans code.
+            ugrid[vname]['attributes'].update({'dz_min':dzmin})
             #sun[vv][:]=sun[vv][::-1]
             sun[vv][:]=sun['z_w'][0:-1][::-1]
 
@@ -206,6 +210,14 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
     if tend is None:
         tend=sun.time[-1]
     tsteps=sun.getTstep(tstart,tend)
+
+    # precompute the neighbor array
+    e2c_mirror=nc['Mesh2_edge_faces'][:,:].copy()
+    bound= e2c_mirror.min(axis=1)<0 # order agnostic 
+    e2c_mirror[bound,:] = e2c_mirror[bound,:].max(axis=1)[:,None]
+    # not used, but reported to help with debugging -- this is the
+    # running estimate of dzmin_surface
+    dzmin_surface_estimate=0.0
     
     tdays = othertime.DaysSince(sun.time,basetime=datetime(1899,12,31))
     for ii, tt in enumerate(tsteps):
@@ -234,9 +246,48 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         U = sun.loadData(variable='U_F' )
         dzz = sun.getdzz(eta)
         assert np.all(dzz>=0)
+        # Note that this etop and ctop do *not* reflect any dzmin
         dzf,etop = sun.getdzf(eta_avg,return_etop=True)
+        ctop = sun.loadData(variable='ctop')
         assert np.all(dzf>=0)
 
+        # Use nu_v as a marker for ctop according to suntans, which *does*
+        # include dzmin_surface.  Doesn't work for ii=0, though
+        etop_sun=etop.copy()
+        ctop_sun=ctop.copy()
+        if ii>0: # nu_v is all zero on first time step
+            nu_v=sun.loadData(variable='nu_v')
+            wet_cells=(~nu_v.mask) & (nu_v.data>0.0)
+            C=np.arange(sun.Nc)
+            # Lumped surface cells:
+            # nu_v doesn't agree with ctop,
+            # ctop shows multiple layers
+            # and nu_v shows at least 1 wet layer.
+            lumped=(~wet_cells[ctop_sun,C])&(ctop_sun<sun.Nk)&(wet_cells.sum(axis=0)>0)
+            # specifically, cells that are not lumped but could be
+            # just used to get some bounds on dzmin_surface
+            not_lumped=(wet_cells[ctop_sun,C])&(ctop_sun<sun.Nk)&(wet_cells.sum(axis=0)>0)
+
+            if np.any(lumped):
+                dzz_lumped_max=dzz[ctop[lumped],C[lumped]].max()
+                dzmin_surface_estimate=max(dzmin_surface_estimate,dzz_lumped_max)
+                print("dzz_lumped_max: %.4f  dzmin_surface ~ %.4f"%(dzz_lumped_max,dzmin_surface_estimate))
+
+                for i in np.nonzero(lumped)[0]:
+                    k_wet=np.nonzero(wet_cells[:,i])[0]
+                    ctop_sun[i]=k_wet[0]
+            # And adjust etop to show the same number of layers as the upwinded
+            # ctop
+            eta_nbr=eta[e2c_mirror]
+            ctop_up=np.where( eta_nbr[:,0]>=eta_nbr[:,1],
+                              ctop_sun[e2c_mirror[:,0]],
+                              ctop_sun[e2c_mirror[:,1]] )
+            etop_sun=np.minimum(ctop_up,sun.Nke-1)
+
+            n_etop_changed=(etop_sun!=etop).sum()
+            print("Surface lumping changed %d ctops"%( (ctop!=ctop_sun).sum() ))
+            print("Surface lumping changed %d etops"%n_etop_changed)
+            
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
         nc.variables[vname][:,ii]=eta
@@ -254,29 +305,9 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         vname = 'Mesh2_edge_top_layer'
         #print '\tVariable: %s...'%vname
         ktj = sun.Nkmax-etop # one based, but inclusive, but >=kbj.
-        if 0: # OLD # force ktj up to include edges with flow
-            # etop is based on instantaneous eta, but *probably* should
-            # reflect the highest elevation edge that was wet during the
-            # preceding interval. Actually in the untrim code it is also
-            # instantaneous, though PTM maybe treats it as integrated.
-            Q_j=nc.variables['h_flow_avg'][:,:,ii]
-            Q_j_valid=(~Q_j.mask) & np.isfinite(Q_j.data) & (Q_j.data!=0.0)
-            znums=np.arange(Q_j.shape[1])
-            ktj_from_Q=np.where(Q_j_valid,1+znums[None,:],-1).max(axis=1)
-        
-            # ktj depends on etop, which depends on an instantaneous
-            # eta. but *probably* etop should reflect the range of valid
-            # edges over the integration period. this code is a bit ad-hoc,
-            # but makes sure that kt does not omit any edge-layes with flow.
-            # report how many.. ktj might be wrong.
-            n_ktj_bump=(ktj_from_Q>ktj).sum()
-            if n_ktj_bump>0:
-                print("%d of %d ktj had to be bumped up"%(n_ktj_bump,len(ktj)))
-                ktj=np.maximum(ktj,ktj_from_Q)
-                
         dry=ktj<kbj
-        # This should be okay, but *most* edges that are dry in untrim get
-        # ktj=0.
+        # This is okay even though *most* edges that are dry in untrim get
+        # ktj=0.  PTM just props the value up to kbj anyway.
         ktj[dry]=kbj[dry]
         nc.variables[vname][:,ii]=ktj
         
@@ -305,7 +336,6 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
             tmp3d=tmp3d[None,:]
         nc.variables[vname][:,:,ii]=tmp3d.swapaxes(0,1)[:,::-1]
 
-
         vname = 'h_flow_avg'
         #print '\tVariable: %s...'%vname
         # RH: in the past this code flipped grad, and assigned U as-is.
@@ -314,12 +344,46 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         if sun.Nkmax==1:
             U=U[None,:]
         U=np.ma.filled(U,0.0) # more consistent with untrim output
-        # collapse U above etop to etop.
-        # with eta_avg used above the minimum() shouldn't be necessary,
-        # but would rather catch a bug than lose some flow silently
-        for j,ktop in enumerate(np.minimum(etop,sun.Nke-1)):
+
+        for j in range(sun.Ne):
+            #,ktop in enumerate(np.minimum(etop,sun.Nke-1)):
+            ktop=etop[j]
+            ktop_sun=etop_sun[j]
+            assert ktop <= sun.Nke[j]-1
+            assert ktop_sun <= sun.Nke[j]-1
+
+            # Because U reflects integrated flow, but etop is from eta_avg
+            # there can be some U above etop, which should be collapsed down
+            # to etop
             U[ktop,j]+=U[:ktop,j].sum()
             U[:ktop,j]=0.0
+
+            # Due to surface layer lumping with dzmin_surface, we can also
+            # have the opposite problem, where U is zero in the top layer
+            if ktop_sun>ktop:
+                # use dzf to redistribute the flow
+                weights=dzf[ktop:ktop_sun+1,j]
+                # This shouldn't happen since etop and dzf are computed at the
+                # same time above.
+                assert np.all(weights>0.0),"Confusing etop with no dzf"
+                weights /= weights.sum()
+                U[ktop:ktop_sun+1,j] = weights*U[ktop_sun,j]
+            
+        # HERE - ideally we'd have suntans data on the average flux area, so 
+        # we'd have direct evidence of which layers were active and which were
+        # not.  then if etop was above the active layers, we know that dzmin had
+        # caused some lumping, and we can unlump here.
+        # unfortunately that data is not in the suntans output.
+        # can possibly use nu_v to determine which cells are active.
+        # this appears to be valid
+        # Maybe try out using this to determine dzmin??
+        #   more to make sure I'm getting this right?
+        # Maybe not strictly necessary. but note this doesn't directly get
+        # us the correction for edges -- still have to do something like upwind
+        # eta, or use next velocity down to upwind eta, then grab the ctop of that
+        # upwinded cell.
+        # I think that's the way to go. Later, optionally, can re-apply a new dzmin.
+        # may not be strictly necessary, just a minor loss of volume.(!)
         nc.variables[vname][:,:,ii]=-U.swapaxes(0,1)[:,::-1]
 
         vname = 'v_flow_avg'
@@ -367,7 +431,6 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None):
         nc.variables[vname][:,ii]=kbi
 
         vname = 'Mesh2_face_top_layer'
-        ctop = sun.loadData(variable='ctop')
         tmp2d = sun.Nkmax-ctop # one based, but inclusive, and >= kbi
         dry=tmp2d<kbi
         tmp2d[dry]=kbi[dry]

@@ -76,7 +76,7 @@ varnames = ['Mesh2_salinity_3d',\
 
 FILLVALUE=-9999
 
-@profile
+# @profile
 def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
                    dzmin=0.001):
     """
@@ -248,6 +248,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
         assert np.all(dzz>=0)
         # Note that this etop and ctop do *not* reflect any dzmin
         dzf,etop = sun.getdzf(eta_avg,return_etop=True)
+        dzf=np.ma.filled(dzf,0.0) # faster to work with unmasked.
         ctop = sun.loadData(variable='ctop')
         assert np.all(dzf>=0)
 
@@ -345,12 +346,14 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             U=U[None,:]
         U=np.ma.filled(U,0.0) # more consistent with untrim output
 
+        assert np.all( etop<=sun.Nke-1 )
+        assert np.all( etop_sun<=sun.Nke-1 )
+        # this is a condition for the optimized version of the code
+        # below, rather than a sanity check
+        assert np.all( etop_sun<=etop+1 )
+        
         for j in range(sun.Ne):
-            #,ktop in enumerate(np.minimum(etop,sun.Nke-1)):
             ktop=etop[j]
-            ktop_sun=etop_sun[j]
-            assert ktop <= sun.Nke[j]-1
-            assert ktop_sun <= sun.Nke[j]-1
 
             # Because U reflects integrated flow, but etop is from eta_avg
             # there can be some U above etop, which should be collapsed down
@@ -360,15 +363,31 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
 
             # Due to surface layer lumping with dzmin_surface, we can also
             # have the opposite problem, where U is zero in the top layer
-            if ktop_sun>ktop:
-                # use dzf to redistribute the flow
-                weights=dzf[ktop:ktop_sun+1,j]
-                # This shouldn't happen since etop and dzf are computed at the
-                # same time above.
-                assert np.all(weights>0.0),"Confusing etop with no dzf"
-                weights /= weights.sum()
-                U[ktop:ktop_sun+1,j] = weights*U[ktop_sun,j]
-            
+            # if 0: # now split out to vectorized loop below
+            #     if ktop_sun>ktop:
+            #         # use dzf to redistribute the flow
+            #         # This shouldn't happen since etop and dzf are computed at the
+            #         # same time above.
+            #         if 0: # slow, general version
+            #             weights=dzf[ktop:ktop_sun+1,j]
+            #             assert np.all(weights>0.0),"Confusing etop with no dzf"
+            #             weights /= weights.sum()
+            #             U[ktop:ktop_sun+1,j] = weights*U[ktop_sun,j]
+            #         else:
+            #             dz1=dzf[ktop,j]
+            #             dz2=dzf[ktop_sun,j]
+            #             dzsum=dz1+dz2
+            #             U[ktop,j] = U[ktop_sun,j] * dz1/dzsum
+            #             U[ktop_sun,j] *= dz2/dzsum
+
+        j_lump=np.nonzero(etop_sun>etop)[0]
+        if len(j_lump):
+            dz1=dzf[etop[j_lump],j_lump]
+            dz2=dzf[etop_sun[j_lump],j_lump]
+            dzsum=dz1+dz2
+            U[etop[j_lump],j_lump] = U[etop_sun[j_lump],j_lump] * dz1/dzsum
+            U[etop_sun[j_lump],j_lump] *= dz2/dzsum
+
         # HERE - ideally we'd have suntans data on the average flux area, so 
         # we'd have direct evidence of which layers were active and which were
         # not.  then if etop was above the active layers, we know that dzmin had

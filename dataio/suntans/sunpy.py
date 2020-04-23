@@ -2399,7 +2399,6 @@ class Spatial(Grid):
         Calculate the cell-centred vertical grid spacing based
         on the free surface height only
         """
-
         z = np.cumsum(self.dz)
         dzz = np.repeat(self.dz[:,np.newaxis],self.Nc,axis=1)
 
@@ -2426,18 +2425,25 @@ class Spatial(Grid):
 
         # Mask the cells
         Nk=self.Nk+1
-        for ii in range(self.Nc):
-            dzz[0:ctop[ii],ii]=0.0
-            dzz[Nk[ii]::,ii]=0.0
+        if 1: # vectorized
+            K=np.arange(dzz.shape[0])[:,None]
+            above= K<ctop[None,:]
+            below= K>=Nk[None,:]
+            dzz[above]=0.0
+            dzz[below]=0.0
+        else:
+            for ii in range(self.Nc):
+                dzz[0:ctop[ii],ii]=0.0
+                dzz[Nk[ii]::,ii]=0.0
 
         return dzz
 
+    @profile
     def getdzf(self,eta,U=None,method='max',j=None,return_etop=False):
         """
         Calculate the edge-centred vertical grid spacing based
         on the free surface height only
         """
-
         etop,etaedge = self.getetop(eta,U=U,method=method,j=j)
         Ne = etop.shape[0]
 
@@ -2455,10 +2461,17 @@ class Spatial(Grid):
 
         # Mask the cells
         #mask = self.get_zmask(etop,self.Nke)
-        for ii in range(Ne):
-            dzf[0:etop[ii],ii]=0.0
-            dzf[self.Nke[ii]::,ii]=0.0
-
+        if 0: # old slow way
+            for ii in range(Ne):
+                dzf[0:etop[ii],ii]=0.0 # all the time is in these two lines
+                dzf[self.Nke[ii]::,ii]=0.0
+        if 1: # vectorized - much faster
+            K=np.arange(dzf.shape[0])[:,None]
+            above= K<etop[None,:]
+            below= K>=self.Nke[None,:]
+            dzf[above]=0.0
+            dzf[below]=0.0
+        
         if np.any(dzf<0.0):
             import pdb
             pdb.set_trace()
@@ -2468,12 +2481,10 @@ class Spatial(Grid):
         else:
             return dzf
 
-
     def getctop(self,eta):
         """
         Return the layer of the top cell
         """
-
         # Find the layer of the top cell
         ctop = np.searchsorted(self.z_w[1:],-eta)
         # ctop[ctop>0] -= 1

@@ -2438,7 +2438,6 @@ class Spatial(Grid):
 
         return dzz
 
-    @profile
     def getdzf(self,eta,U=None,method='max',j=None,return_etop=False):
         """
         Calculate the edge-centred vertical grid spacing based

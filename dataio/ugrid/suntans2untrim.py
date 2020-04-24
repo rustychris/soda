@@ -127,6 +127,7 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
     for dd in other_dims:
         nc.createDimension(dd,other_dims[dd])
 
+
     ###
     # Step 3: Initialize all of the grid variables
     ###
@@ -178,9 +179,24 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
         #    #sun[vv][:]=sun[vv][:]+1
         #    create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
         #        data=tmp,dtype=ugrid[vname]['dtype'])
-
         create_nc_var(vname,ugrid[vname]['dimensions'],ugrid[vname]['attributes'],\
-            data=sun[vv],dtype=ugrid[vname]['dtype'])
+                      data=sun[vv],dtype=ugrid[vname]['dtype'])
+    
+    # Create the mesh variable for ugrid compliance
+    meshvar=nc.createVariable('Mesh2','i4',[])
+    for k,v in [ ('cf_role','mesh_topology'),
+                 ('topology_dimension',2),
+                 ('face_node_connectivity','Mesh2_face_nodes'),
+                 ('node_coordinates','Mesh2_node_x Mesh2_node_y'),
+                 ('edge_dimension','nMesh2_edge'),
+                 ('face_dimension','nMesh2_face'),
+                 ('edge_node_connectivity','Mesh2_edge_nodes'),
+                 ('node_dimension','nMesh2_node'),
+                 ('face_coordinates','Mesh2_face_x Mesh2_face_y'),
+                 ('edge_face_connectivity','Mesh2_edge_faces'),
+                 ('face_edge_connectivity','Mesh2_face_edges')
+    ]:
+        meshvar.setncattr(k,v)
 
 
     # Initialize the two time variables
@@ -212,9 +228,53 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
     tsteps=sun.getTstep(tstart,tend)
 
     # precompute the neighbor array
+    # this is used for moving cell-eta to edges.
+    # for uncertain reasons, suntans outputs eta=0.0 on eta-forced cells.
+    # so ignore those etas for adjacent edges.  there will still be edges
+    # with two bc=3 cells.  no hope for them.
+    # don't muck with e2c to fix that, though. muck with eta below, and that
+    # way sunpy will process etop in a compatible way.
     e2c_mirror=nc['Mesh2_edge_faces'][:,:].copy()
-    bound= e2c_mirror.min(axis=1)<0 # order agnostic 
-    e2c_mirror[bound,:] = e2c_mirror[bound,:].max(axis=1)[:,None]
+    e2c_mirror=np.ma.filled(e2c_mirror,-1)
+    face_bc=nc['Mesh2_face_bc'][:]
+    for j in range(sun.Ne):
+        if e2c_mirror[j,0]<0:
+            e2c_mirror[j,0]=e2c_mirror[j,1]
+        elif e2c_mirror[j,1]<0:
+            e2c_mirror[j,1]=e2c_mirror[j,0]
+        # elif face_bc[e2c_mirror[j,0]]==3:
+        #     e2c_mirror[j,0]=e2c_mirror[j,1]
+        # elif face_bc[e2c_mirror[j,1]]==3:
+        #     e2c_mirror[j,1]=e2c_mirror[j,0]
+
+    # Getting deep here... The wacky eta values for type 3 cells
+    # complicate the code below.  So add a little chunk here to
+    # remap those eta values.
+    eta_map=np.arange(sun.Nc)
+    e2c=nc['Mesh2_edge_faces'][:,:]
+    c2e=nc['Mesh2_face_edges'][:,:]
+    eta_map[face_bc==3]=-1
+    
+    while 1:
+        to_remap=np.nonzero(eta_map<0)[0]
+        if len(to_remap)==0: break
+        # operate on copies so that we get a proper bread-first
+        # search
+        eta_map_new=eta_map.copy()
+        for c in to_remap:
+            for j in c2e[c]: # search for a non-face_bc neighbor
+                if j<0: break # no more valid edges
+                if e2c[j,0]==c:
+                    nbr=e2c[j,1]
+                else:
+                    nbr=e2c[j,0]
+                if eta_map[nbr]>=0: # nbr is good -- copy it.
+                    eta_map_new[c]=eta_map[nbr]
+                    break
+                # otherwise, have to wait until more neighbors are filled
+                # in.
+        eta_map=eta_map_new
+    
     # not used, but reported to help with debugging -- this is the
     # running estimate of dzmin_surface
     dzmin_surface_estimate=0.0
@@ -235,7 +295,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
 
         ###
         # Compute a few terms first
-        eta = sun.loadData(variable='eta' )
+        eta = sun.loadData(variable='eta')
+        eta=eta[eta_map]
 
         if ii<2:
             # true average not defined for ii=0
@@ -243,13 +304,16 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             eta_avg=eta
         else:
             eta_avg = sun.loadData(variable='eta_avg')
+            eta_avg=eta_avg[eta_map]
         U = sun.loadData(variable='U_F' )
         dzz = sun.getdzz(eta)
         assert np.all(dzz>=0)
         # Note that this etop and ctop do *not* reflect any dzmin
         dzf,etop = sun.getdzf(eta_avg,return_etop=True)
         dzf=np.ma.filled(dzf,0.0) # faster to work with unmasked.
-        ctop = sun.loadData(variable='ctop')
+        # need to use our special eta that's remapped away from bogus type 3 cells.
+        ctop=sun.getctop(eta)
+
         assert np.all(dzf>=0)
 
         # Use nu_v as a marker for ctop according to suntans, which *does*
@@ -283,11 +347,32 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             ctop_up=np.where( eta_nbr[:,0]>=eta_nbr[:,1],
                               ctop_sun[e2c_mirror[:,0]],
                               ctop_sun[e2c_mirror[:,1]] )
+            # opposite - for sanity checking below
+            ctop_down=np.where( eta_nbr[:,0]>=eta_nbr[:,1],
+                                ctop_sun[e2c_mirror[:,1]],
+                                ctop_sun[e2c_mirror[:,0]] )
+            
             etop_sun=np.minimum(ctop_up,sun.Nke-1)
 
+            if ii>1:
+                # heavy-handed fix.  relies on U, so have to wait until ii>1
+                has_U=np.any(U!=0,axis=0)
+                no_Utop=U[etop_sun,np.arange(sun.Ne)]==0.0
+                # shakey ground
+                to_smush=has_U&no_Utop&(ctop_down==ctop_up+1)
+                # The assumption is that there are rare edges where
+                # the upwinded eta is actually the lower eta value.
+                # happens in river bends. This assert makes sure
+                # the error is just in the upwinding, not something
+                # more sinister.
+                etop_sun[to_smush]+=1
+                
             n_etop_changed=(etop_sun!=etop).sum()
             print("Surface lumping changed %d ctops"%( (ctop!=ctop_sun).sum() ))
             print("Surface lumping changed %d etops"%n_etop_changed)
+
+        # if ii==2:
+        #     pdb.set_trace() # what's up with edge 724?
             
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
@@ -346,11 +431,12 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             U=U[None,:]
         U=np.ma.filled(U,0.0) # more consistent with untrim output
 
-        assert np.all( etop<=sun.Nke-1 )
+        # with edge depths, this is not safe, as sunpy doesn't understand
+        # edge depths.
+        # assert np.all( etop<=sun.Nke-1 )
+        # So just force it... :-(
+        etop=np.minimum( etop, sun.Nke-1 )
         assert np.all( etop_sun<=sun.Nke-1 )
-        # this is a condition for the optimized version of the code
-        # below, rather than a sanity check
-        assert np.all( etop_sun<=etop+1 )
         
         for j in range(sun.Ne):
             ktop=etop[j]
@@ -380,13 +466,19 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             #             U[ktop,j] = U[ktop_sun,j] * dz1/dzsum
             #             U[ktop_sun,j] *= dz2/dzsum
 
-        j_lump=np.nonzero(etop_sun>etop)[0]
+        # First the case where there is just a single extra layer
+        j_lump=np.nonzero(etop_sun==1+etop)[0]
         if len(j_lump):
             dz1=dzf[etop[j_lump],j_lump]
             dz2=dzf[etop_sun[j_lump],j_lump]
             dzsum=dz1+dz2
             U[etop[j_lump],j_lump] = U[etop_sun[j_lump],j_lump] * dz1/dzsum
             U[etop_sun[j_lump],j_lump] *= dz2/dzsum
+
+        # And the rare case (just bogus type 3 BC cells) where etop shows
+        # several more layers than etop_sun
+        for j in np.nonzero(etop_sun>1+etop)[0]:
+            raise Exception("Not ready for this")
 
         # HERE - ideally we'd have suntans data on the average flux area, so 
         # we'd have direct evidence of which layers were active and which were

@@ -309,7 +309,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
         dzz = sun.getdzz(eta)
         assert np.all(dzz>=0)
         # Note that this etop and ctop do *not* reflect any dzmin
-        dzf,etop = sun.getdzf(eta_avg,return_etop=True)
+        # this max was an improvement, but I'm wondering if just eta
+        # is the best.
+        dzf,etop = sun.getdzf(eta, # np.maximum(eta,eta_avg),
+                              return_etop=True)
         dzf=np.ma.filled(dzf,0.0) # faster to work with unmasked.
         # need to use our special eta that's remapped away from bogus type 3 cells.
         ctop=sun.getctop(eta)
@@ -359,13 +362,24 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
                 has_U=np.any(U!=0,axis=0)
                 no_Utop=U[etop_sun,np.arange(sun.Ne)]==0.0
                 # shakey ground
-                to_smush=has_U&no_Utop&(ctop_down==ctop_up+1)
+                to_smush=has_U&no_Utop # &(ctop_down==ctop_up+1)
                 # The assumption is that there are rare edges where
                 # the upwinded eta is actually the lower eta value.
                 # happens in river bends. This assert makes sure
                 # the error is just in the upwinding, not something
                 # more sinister.
+                # now even more heavy handed. seems that there are cases
+                # when ctops are both the same, nu_v shows wet, but Q
+                # is zero. maybe b/c of the order in which instantaeous
+                # qtys are updated vs integrated.
                 etop_sun[to_smush]+=1
+                
+                no_Utop1=U[etop_sun,np.arange(sun.Ne)]==0.0
+                still_bad=(has_U&no_Utop1).sum()
+                if still_bad:
+                    print("WARNING: still have %d edges with missing Qtop"%still_bad)
+                
+
                 
             n_etop_changed=(etop_sun!=etop).sum()
             print("Surface lumping changed %d ctops"%( (ctop!=ctop_sun).sum() ))
@@ -477,9 +491,17 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
 
         # And the rare case (just bogus type 3 BC cells) where etop shows
         # several more layers than etop_sun
-        for j in np.nonzero(etop_sun>1+etop)[0]:
-            raise Exception("Not ready for this")
-
+        crazy_edges=np.nonzero(etop_sun>1+etop)[0]
+        if len(crazy_edges):
+            print("Whoa - %d edges have etop_sun>etop+1"%(len(crazy_edges)))
+            for j in crazy_edges:
+                ktop=etop[j]
+                ktop_sun=etop_sun[j]
+                weights=dzf[ktop:ktop_sun+1,j]
+                assert np.all(weights>0.0),"Confusing etop with no dzf"
+                weights /= weights.sum()
+                U[ktop:ktop_sun+1,j] = weights*U[ktop_sun,j]
+        
         # HERE - ideally we'd have suntans data on the average flux area, so 
         # we'd have direct evidence of which layers were active and which were
         # not.  then if etop was above the active layers, we know that dzmin had

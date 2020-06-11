@@ -2492,6 +2492,10 @@ class Spatial(Grid):
     def getetop(self,eta,method='max',U=None,j=None):
         """
         Return the layer of the top edge
+        It is possible for this to return etop==Nke, in the
+        case that there is no "buffer height"
+        This follows the internal suntans definition that allows
+        etop==Nke for dry edges
         """
         if j is None:
             eta_edge = self.get_edgevar(eta,U=U,method=method)

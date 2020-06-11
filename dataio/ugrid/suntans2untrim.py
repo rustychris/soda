@@ -78,10 +78,15 @@ FILLVALUE=-9999
 
 # @profile
 def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
-                   dzmin=0.001):
+                   dzmin=0.001,remap_eta_bc_cells=False):
     """
     Converts a suntans averages netcdf file into untrim format
     for use in particle tracking
+
+    remap_eta_bc_cells: in older version of the suntans code,
+    eta for type 3 (forced eta) cells was not included in the output.
+     set this to true to enable a kludge where eta for those cells
+     will be taken from a nearby, non-BC cell.
     """
     ####
     # Step 1: Load the suntans data object
@@ -250,30 +255,32 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
     # Getting deep here... The wacky eta values for type 3 cells
     # complicate the code below.  So add a little chunk here to
     # remap those eta values.
+    # No longer needed -- proper eta is now output for all cells.
     eta_map=np.arange(sun.Nc)
-    e2c=nc['Mesh2_edge_faces'][:,:]
-    c2e=nc['Mesh2_face_edges'][:,:]
-    eta_map[face_bc==3]=-1
-    
-    while 1:
-        to_remap=np.nonzero(eta_map<0)[0]
-        if len(to_remap)==0: break
-        # operate on copies so that we get a proper bread-first
-        # search
-        eta_map_new=eta_map.copy()
-        for c in to_remap:
-            for j in c2e[c]: # search for a non-face_bc neighbor
-                if j<0: break # no more valid edges
-                if e2c[j,0]==c:
-                    nbr=e2c[j,1]
-                else:
-                    nbr=e2c[j,0]
-                if eta_map[nbr]>=0: # nbr is good -- copy it.
-                    eta_map_new[c]=eta_map[nbr]
-                    break
-                # otherwise, have to wait until more neighbors are filled
-                # in.
-        eta_map=eta_map_new
+    if remap_eta_bc_cells:
+        e2c=nc['Mesh2_edge_faces'][:,:]
+        c2e=nc['Mesh2_face_edges'][:,:]
+        eta_map[face_bc==3]=-1
+
+        while 1:
+            to_remap=np.nonzero(eta_map<0)[0]
+            if len(to_remap)==0: break
+            # operate on copies so that we get a proper breadth-first
+            # search
+            eta_map_new=eta_map.copy()
+            for c in to_remap:
+                for j in c2e[c]: # search for a non-face_bc neighbor
+                    if j<0: break # no more valid edges
+                    if e2c[j,0]==c:
+                        nbr=e2c[j,1]
+                    else:
+                        nbr=e2c[j,0]
+                    if eta_map[nbr]>=0: # nbr is good -- copy it.
+                        eta_map_new[c]=eta_map[nbr]
+                        break
+                    # otherwise, have to wait until more neighbors are filled
+                    # in.
+            eta_map=eta_map_new
     
     # not used, but reported to help with debugging -- this is the
     # running estimate of dzmin_surface
@@ -321,6 +328,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
 
         # Use nu_v as a marker for ctop according to suntans, which *does*
         # include dzmin_surface.  Doesn't work for ii=0, though
+        # new suntans edits allow for edge to be completely dry, which
+        # can yield etop==Nke.  This code, and the PTM, I think don't like that
         etop_sun=etop.copy()
         ctop_sun=ctop.copy()
         if ii>0: # nu_v is all zero on first time step
@@ -357,7 +366,8 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
             
             etop_sun=np.minimum(ctop_up,sun.Nke-1)
 
-            if ii>1:
+            # used to be ii>1, but really we should have U at step ii=1.
+            if ii>0: 
                 # heavy-handed fix.  relies on U, so have to wait until ii>1
                 has_U=np.any(U!=0,axis=0)
                 no_Utop=U[etop_sun,np.arange(sun.Ne)]==0.0
@@ -378,16 +388,13 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
                 still_bad=(has_U&no_Utop1).sum()
                 if still_bad:
                     print("WARNING: still have %d edges with missing Qtop"%still_bad)
-                
-
+                    import pdb
+                    pdb.set_trace()
                 
             n_etop_changed=(etop_sun!=etop).sum()
             print("Surface lumping changed %d ctops"%( (ctop!=ctop_sun).sum() ))
             print("Surface lumping changed %d etops"%n_etop_changed)
 
-        # if ii==2:
-        #     pdb.set_trace() # what's up with edge 724?
-            
         vname='Mesh2_sea_surface_elevation'
         #print '\tVariable: %s...'%vname
         nc.variables[vname][:,ii]=eta
@@ -450,7 +457,10 @@ def suntans2untrim(ncfile,outfile,tstart,tend,grdfile=None,
         # assert np.all( etop<=sun.Nke-1 )
         # So just force it... :-(
         etop=np.minimum( etop, sun.Nke-1 )
-        assert np.all( etop_sun<=sun.Nke-1 )
+        # This used to be an assert, but new suntans edits allow edges
+        # to go completely dry.  so, again, force it.
+        etop_sun=np.minimum( etop_sun, sun.Nke-1)
+        # assert np.all( etop_sun<=sun.Nke-1 ) 
         
         for j in range(sun.Ne):
             ktop=etop[j]

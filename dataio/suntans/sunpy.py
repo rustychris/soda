@@ -8,7 +8,14 @@ Created on Mon Sep 24 16:55:45 2012
 @author: mrayson
 """
 
-from netCDF4 import MFDataset, Dataset, num2date
+from netCDF4 import MFDataset, Dataset
+
+from netCDF4 import num2date as num2date_orig
+# RH 2020-07-13: Default return type has changed, try requesting
+# python objects
+def num2date(*a,**k):
+    return num2date_orig(*a,only_use_python_datetimes=True,**k)
+
 import numpy as np
 from datetime import datetime
 import os, time, getopt, sys
@@ -1389,6 +1396,9 @@ class Spatial(Grid):
         #nc = Dataset(self.ncfile, 'r', format='NETCDF4')
         nc = self.nc
         t = nc.variables[self.gridvars['time']]
+        # RH 2020-07-13: seems that num2date is now defaulting to using
+        # its own datetime type, which confuses other parts of the code.
+        # request python datetimes
         self.time = num2date(t[:],t.units)
         self.timeraw = t[:]
 
